@@ -93,14 +93,14 @@ log.debug "description is: ${description}"
     } else {
     	sendEvent(name: "powered", value: "powerOn", descriptionText: "$device.displayName regained power")
     }
-    
+    if (cmd.CMD == "2503") {log.debug "wholly smokes!"}
 	if (cmd) {
 		result = createEvent(zwaveEvent(cmd))
 	}
 	log.debug "Parse returned ${result?.descriptionText}"
 	return result
 }
-
+/*
 def sensorValueEvent(Short value) {
 	if (value) {
         sendEvent(name: "contact", value: "open")
@@ -119,15 +119,23 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd)
 {
 	sensorValueEvent(cmd.value)
 }
-
+*/
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
-	def doorState = device.currentValue('contact')
-    if ( doorState == "closed")
-		[name: "switch", value: cmd.value ? "on" : "doorOpening", type: "digital"]
+    if (cmd.value)
+    {
+    	sendEvent(name: "contact", value: "open")
+        sendEvent(name: "switch", value: "doorOpen")
+		return [name: "switch", value: cmd.value ? "on" : "doorOpening", type: "digital"]
+    }
     else
-    	[name: "switch", value: cmd.value ? "on" : "doorClosing", type: "digital"]
+    {
+    	sendEvent(name: "contact", value: "closed")
+        sendEvent(name: "switch", value: "doorClosed")
+		return [name: "switch", value: cmd.value ? "on" : "doorClosing", type: "digital"]
+    }
+       
 }
-
+/*
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
 {
 	sensorValueEvent(cmd.sensorValue)
@@ -137,7 +145,7 @@ def zwaveEvent(physicalgraph.zwave.commands.alarmv1.AlarmReport cmd)
 {
     log.debug "We lost power" //we caught this up in the parse method. This method not used.
 }
-
+*/
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	// Handles all Z-Wave commands we aren't interested in
 	[:]
@@ -147,22 +155,20 @@ def configure() {
 	log.debug "Configuring...." //setting up to monitor power alarm and actuator duration
 	delayBetween([
 		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(),
-        zwave.configurationV1.configurationSet(configurationValue: [25], parameterNumber: 11, size: 1).format(),
+        zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(),
         zwave.configurationV1.configurationGet(parameterNumber: 11).format()
 	])
 }
 
 def on() {
 	delayBetween([
-		zwave.basicV1.basicSet(value: 0xFF).format(),
-		zwave.switchBinaryV1.switchBinaryGet().format()
+		zwave.basicV1.basicSet(value: 0xFF).format(), zwave.switchBinaryV1.switchBinaryGet().format()
 	])
 }
 
 def off() {
 	delayBetween([
-		zwave.basicV1.basicSet(value: 0x00).format(),
-		zwave.switchBinaryV1.switchBinaryGet().format()
+		zwave.basicV1.basicSet(value: 0x00).format(), zwave.switchBinaryV1.switchBinaryGet().format()
 	])
 }
 
