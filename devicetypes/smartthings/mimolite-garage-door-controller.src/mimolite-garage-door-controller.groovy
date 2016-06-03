@@ -30,9 +30,8 @@
  */
 metadata {
 	// Automatically generated. Make future change here.
-	definition (name: "MimoLite Garage Door Controller", namespace: "smartthings", author: "Todd Wackford") {
+	definition (name: "MimoLite Garage Door Controller", namespace: "smartthings", author: "Christopher Pratt") {
 		capability "Configuration"
-		capability "Polling"
 		capability "Switch"
 		capability "Refresh"
 		capability "Contact Sensor"
@@ -53,12 +52,8 @@ metadata {
 	// UI tile definitions 
 	tiles {
         standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: true) {
-			state "doorClosed", label: "Closed", action: "on", icon: "st.doors.garage.garage-closed", backgroundColor: "#79b821"
-            state "doorOpen", label: "Open", action: "on", icon: "st.doors.garage.garage-open", backgroundColor: "#ffa81e"
-            state "doorOpening", label: "Opening", action: "on", icon: "st.doors.garage.garage-opening", backgroundColor: "#ffa81e"
-            state "doorClosing", label: "Closing", action: "on", icon: "st.doors.garage.garage-closing", backgroundColor: "#ffa81e"
-            state "on", label: "Actuate", action: "off", icon: "st.doors.garage.garage-closed", backgroundColor: "#53a7c0"
-			state "off", label: '${name}', action: "on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+            state "on", label: "Turn Off", action: "off", icon: "http://cdn.device-icons.smartthings.com/Lighting/light11-icn@2x.png", backgroundColor: "#53a7c0"
+			state "off", label: 'Turn On', action: "on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
         }
         standardTile("contact", "device.contact", inactiveLabel: false) {
 			state "open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
@@ -74,7 +69,7 @@ metadata {
 		standardTile("configure", "device.configure", inactiveLabel: false, decoration: "flat") {
 			state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
 		}
-		main (["switch", "contact"])
+		main (["switch"])
 		details(["switch", "powered", "refresh", "configure"])
 	}
 }
@@ -93,59 +88,39 @@ log.debug "description is: ${description}"
     } else {
     	sendEvent(name: "powered", value: "powerOn", descriptionText: "$device.displayName regained power")
     }
-    if (cmd.CMD == "2503") {log.debug "wholly smokes!"}
+    //log.debug "${device.currentValue('contact')}" // debug message to make sure the contact tile is working
 	if (cmd) {
 		result = createEvent(zwaveEvent(cmd))
 	}
 	log.debug "Parse returned ${result?.descriptionText}"
 	return result
 }
-/*
-def sensorValueEvent(Short value) {
-	if (value) {
-        sendEvent(name: "contact", value: "open")
-        sendEvent(name: "switch", value: "doorOpen")
-	} else {
-        sendEvent(name: "contact", value: "closed")
-        sendEvent(name: "switch", value: "doorClosed")
-	}
-}
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicReport cmd) {
-	[name: "switch", value: cmd.value ? "on" : "off", type: "physical"]
-}
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd)
-{
-	sensorValueEvent(cmd.value)
-}
-*/
-def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) {
-    if (cmd.value)
+//notes about zwaveEvents:
+// these are special overloaded functions which MUST be returned with a map similar to (return [name: "switch", value: "on"])
+// not doing so will produce a null on the parse function, this will mess you up in the future.
+// Perhaps can use 'createEvent()' and return that as long as a map is inside it.
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) { 
+    if (cmd.value) // if the switch is on it will not be 0, so on = true
     {
-    	sendEvent(name: "contact", value: "open")
-        sendEvent(name: "switch", value: "doorOpen")
-		return [name: "switch", value: cmd.value ? "on" : "doorOpening", type: "digital"]
+    	sendEvent(name: "contact", value: "closed") // change contact value to a closed contact
+		return [name: "switch", value: "on"] // change switch value to on
     }
-    else
+    else // if the switch sensor report says its off then do...
     {
-    	sendEvent(name: "contact", value: "closed")
-        sendEvent(name: "switch", value: "doorClosed")
-		return [name: "switch", value: cmd.value ? "on" : "doorClosing", type: "digital"]
+    	sendEvent(name: "contact", value: "open") // change contact value to open 
+		return [name: "switch", value: "off"] // change switch value to off
     }
        
 }
-/*
+/* working on next for the analogue and digital stuff.
 def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
 {
 	sensorValueEvent(cmd.sensorValue)
 }
-
-def zwaveEvent(physicalgraph.zwave.commands.alarmv1.AlarmReport cmd)
-{
-    log.debug "We lost power" //we caught this up in the parse method. This method not used.
-}
 */
+
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	// Handles all Z-Wave commands we aren't interested in
 	[:]
@@ -154,28 +129,29 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 def configure() {
 	log.debug "Configuring...." //setting up to monitor power alarm and actuator duration
 	delayBetween([
-		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(),
-        zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(),
-        zwave.configurationV1.configurationGet(parameterNumber: 11).format()
+		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(), // 	FYI: Group 3: If a power dropout occurs, the MIMOlite will send an Alarm Command Class report 
+        																							//	(if there is enough available residual power)
+        zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(), // configurationValue for parameterNumber means how many 100ms do you want the relay
+        																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
+        zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes.
 	])
 }
 
 def on() {
 	delayBetween([
-		zwave.basicV1.basicSet(value: 0xFF).format(), zwave.switchBinaryV1.switchBinaryGet().format()
+		zwave.basicV1.basicSet(value: 0xFF).format(), zwave.switchBinaryV1.switchBinaryGet().format() 	// physically changes the relay from on to off and requests a report of the relay
+        																								// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
 	])
 }
 
 def off() {
 	delayBetween([
-		zwave.basicV1.basicSet(value: 0x00).format(), zwave.switchBinaryV1.switchBinaryGet().format()
+		zwave.basicV1.basicSet(value: 0x00).format(), zwave.switchBinaryV1.switchBinaryGet().format() // physically changes the relay from on to off and requests a report of the relay
+        																							  // to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
 	])
 }
 
-def poll() {
-	zwave.switchBinaryV1.switchBinaryGet().format()
-}
-
 def refresh() {
-	zwave.switchBinaryV1.switchBinaryGet().format()
+	zwave.switchBinaryV1.switchBinaryGet().format() //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+        																							
 }
