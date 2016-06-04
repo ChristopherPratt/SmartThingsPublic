@@ -35,6 +35,7 @@ metadata {
 		capability "Switch"
 		capability "Refresh"
 		capability "Contact Sensor"
+        capability "Voltage Measurement"
 
 		attribute "powered", "string"
 
@@ -69,8 +70,11 @@ metadata {
 		standardTile("configure", "device.configure", inactiveLabel: false, decoration: "flat") {
 			state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
 		}
+        valueTile("voltage", "device.voltage") {
+        state "val", label:'${currentValue}', defaultState: true
+    }
 		main (["switch"])
-		details(["switch", "powered", "refresh", "configure"])
+		details(["switch", "powered", "refresh", "configure","voltage","contact"])
 	}
 }
 
@@ -104,22 +108,26 @@ log.debug "description is: ${description}"
 def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) { 
     if (cmd.value) // if the switch is on it will not be 0, so on = true
     {
-    	sendEvent(name: "contact", value: "closed") // change contact value to a closed contact
+    	
 		return [name: "switch", value: "on"] // change switch value to on
     }
     else // if the switch sensor report says its off then do...
     {
-    	sendEvent(name: "contact", value: "open") // change contact value to open 
 		return [name: "switch", value: "off"] // change switch value to off
     }
        
 }
-/* working on next for the analogue and digital stuff.
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
+// working on next for the analogue and digital stuff.
+def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) // sensorBinaryReport is essentially our digital sensor for SIG1
 {
-	sensorValueEvent(cmd.sensorValue)
+	log.debug "sent a sensorBinaryReport"
+	[name: "contact", value: cmd.value ? "closed" : "open", type: "digital"]}
+    
+def zwaveEvent (physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) // sensorMultilevelReport is used to report the value of the analog voltage for SIG1
+{
+	log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue"
+	[name: "voltage", value: cmd.sensorValue]
 }
-*/
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	// Handles all Z-Wave commands we aren't interested in
@@ -131,6 +139,8 @@ def configure() {
 	delayBetween([
 		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(), // 	FYI: Group 3: If a power dropout occurs, the MIMOlite will send an Alarm Command Class report 
         																							//	(if there is enough available residual power)
+        zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]).format(), // periodically send a multilevel sensor report of the ADC analog voltage to the input
+        zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
         zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(), // configurationValue for parameterNumber means how many 100ms do you want the relay
         																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
         zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes.
@@ -153,5 +163,8 @@ def off() {
 
 def refresh() {
 	zwave.switchBinaryV1.switchBinaryGet().format() //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-        																							
+    zwave.sensorMultilevelV5.sensorMultilevelGet().format() // requests a report of the anologue input voltage
 }
+
+//notes for tomorrow
+//figure out what sensorValue means and what the map coming to the terminal means. set the triggers for the analogue switch.
