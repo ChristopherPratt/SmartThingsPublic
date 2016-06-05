@@ -128,10 +128,10 @@ def zwaveEvent (physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevel
 	def ADCvalue = cmd.scaledSensorValue
    
 
-    def voltResult = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
+    def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
 	//log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
-
-	[name: "voltage", value: "$voltResult.round(1) v"]
+	def voltResult = volt.round(1) + "v"
+	[name: "voltage", value: voltResult]
 }
 
 def zwaveEvent(physicalgraph.zwave.Command cmd) {
@@ -148,7 +148,7 @@ def configure() {
         zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
         zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(), // configurationValue for parameterNumber means how many 100ms do you want the relay
         																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
-        zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
+        //zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
 	])
 }
 
