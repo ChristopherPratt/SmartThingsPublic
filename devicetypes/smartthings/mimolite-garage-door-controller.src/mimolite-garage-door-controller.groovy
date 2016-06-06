@@ -118,7 +118,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
        
 }
 // working on next for the analogue and digital stuff.
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) // sensorBinaryReport is essentially our digital sensor for SIG1
+def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // sensorBinaryReport is essentially our digital sensor for SIG1
 {
 	log.debug "sent a sensorBinaryReport"
 	[name: "contact", value: cmd.value ? "closed" : "open", type: "digital"]}
@@ -129,7 +129,7 @@ def zwaveEvent (physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevel
    
 
     def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
-	//log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
+	log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
 	def voltResult = volt.round(1) + "v"
 	[name: "voltage", value: voltResult]
 }
