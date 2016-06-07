@@ -121,13 +121,7 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
 {
 	log.debug "sent a BasicSet command"
-    refresh()
-    def contactState = device.currentValue('contact') // gets the current "state" of the "contact" tile.
-    if (contactState == "closed")
-    {on()} // dending on the state of the digital input - open or close the switch
-    else
-    {off()}
-    
+    refresh()    
 	[name: "contact", value: cmd.value ? "open" : "closed"]}
     //[name: "contact", value: cmd.value ? "open" : "closed", type: "digital"]}
     
@@ -161,7 +155,7 @@ def configure() {
         zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]).format(), // periodically send a multilevel sensor report of the ADC analog voltage to the input
         zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
         zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(), // configurationValue for parameterNumber means how many 100ms do you want the relay
-        																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
+        100																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
         //zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
 	])
 }
@@ -169,19 +163,24 @@ def configure() {
 def on() {
 	delayBetween([
 		zwave.basicV1.basicSet(value: 0xFF).format(), 	// physically changes the relay from on to off and requests a report of the relay
-        refresh()																								// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+        refresh(),// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+        100
 	])
 }
 
 def off() {
 	delayBetween([
 		zwave.basicV1.basicSet(value: 0x00).format(), // physically changes the relay from on to off and requests a report of the relay
-        refresh()																							  // to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+        refresh(),// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+        100
 	])
 }
 
 def refresh() {
-	zwave.switchBinaryV1.switchBinaryGet().format() //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-    zwave.sensorMultilevelV5.sensorMultilevelGet().format() // requests a report of the anologue input voltage
+delayBetween([
+        zwave.switchBinaryV1.switchBinaryGet().format(), //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+        zwave.sensorMultilevelV5.sensorMultilevelGet().format(),// requests a report of the anologue input voltage
+        100
+    ])
 }
 
