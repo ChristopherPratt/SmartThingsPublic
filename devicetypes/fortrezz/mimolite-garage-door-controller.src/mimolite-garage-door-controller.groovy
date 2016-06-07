@@ -161,19 +161,15 @@ def configure() {
 }
 
 def on() {
-	delayBetween([
-		zwave.basicV1.basicSet(value: 0xFF).format(), 	// physically changes the relay from on to off and requests a report of the relay
-        refresh(),// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-        100
-	])
+		zwave.basicV1.basicSet(value: 0xFF).format() 	// physically changes the relay from on to off and requests a report of the relay
+        refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
 }
 
 def off() {
-	delayBetween([
-		zwave.basicV1.basicSet(value: 0x00).format(), // physically changes the relay from on to off and requests a report of the relay
-        refresh(),// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-        100
-	])
+	
+		zwave.basicV1.basicSet(value: 0x00).format() // physically changes the relay from on to off and requests a report of the relay
+        refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+
 }
 
 def refresh() {
