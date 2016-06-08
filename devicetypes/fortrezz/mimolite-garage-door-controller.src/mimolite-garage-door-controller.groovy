@@ -79,12 +79,12 @@ metadata {
 }
 
 def parse(String description) {
-//log.debug "description is: ${description}"
+log.debug "description is: ${description}"
 
 	def result = null
 	def cmd = zwave.parse(description, [0x20: 1, 0x84: 1, 0x30: 1, 0x70: 1])
     
-    //log.debug "command value is: $cmd.CMD"
+    log.debug "command value is: $cmd.CMD"
     
     if (cmd.CMD == "7105") {				//Mimo sent a power loss report
     	log.debug "Device lost power"
@@ -96,7 +96,7 @@ def parse(String description) {
 	if (cmd) {
 		result = createEvent(zwaveEvent(cmd))
 	}
-	log.debug "Parse returned ${result?.descriptionText} $cmd.CMD"
+	log.debug "Parse returned ${result?.descriptionText}"
 	return result
 }
 
@@ -121,24 +121,23 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
 {
 	log.debug "sent a BasicSet command"
-    refresh()    
+    refresh()
+    def contactState = device.currentValue('contact') // gets the current "state" of the "contact" tile.
+    if (contactState == "closed")
+    {on()} // dending on the state of the digital input - open or close the switch
+    else
+    {off()}
+    
 	[name: "contact", value: cmd.value ? "open" : "closed"]}
     //[name: "contact", value: cmd.value ? "open" : "closed", type: "digital"]}
     
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
-{
-	[:]
-}
-    
-    
 def zwaveEvent (physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) // sensorMultilevelReport is used to report the value of the analog voltage for SIG1
 {
-	log.debug "sent a SensorMultilevelReport"
 	def ADCvalue = cmd.scaledSensorValue
     def map = [:]
 
     def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
-	//log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
+	log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
 	def voltResult = volt.round(1)// + "v"
     
 	map.name = "voltage"
@@ -162,28 +161,26 @@ def configure() {
         zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]).format(), // periodically send a multilevel sensor report of the ADC analog voltage to the input
         zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
         zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format(), // configurationValue for parameterNumber means how many 100ms do you want the relay
-        100																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
+        																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
         //zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
 	])
 }
 
 def on() {
-		zwave.basicV1.basicSet(value: 0xFF).format() 	// physically changes the relay from on to off and requests a report of the relay
-        refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+	delayBetween([
+		zwave.basicV1.basicSet(value: 0xFF).format(), 	// physically changes the relay from on to off and requests a report of the relay
+        refresh()																								// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+	])
 }
 
 def off() {
-	
-		zwave.basicV1.basicSet(value: 0x00).format() // physically changes the relay from on to off and requests a report of the relay
-        refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-
+	delayBetween([
+		zwave.basicV1.basicSet(value: 0x00).format(), // physically changes the relay from on to off and requests a report of the relay
+        refresh()																							  // to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+	])
 }
 
 def refresh() {
-delayBetween([
-        zwave.switchBinaryV1.switchBinaryGet().format(), //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-        zwave.sensorMultilevelV5.sensorMultilevelGet().format(),// requests a report of the anologue input voltage
-        100
-    ])
+	zwave.switchBinaryV1.switchBinaryGet().format() //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+    zwave.sensorMultilevelV5.sensorMultilevelGet().format() // requests a report of the anologue input voltage
 }
-
