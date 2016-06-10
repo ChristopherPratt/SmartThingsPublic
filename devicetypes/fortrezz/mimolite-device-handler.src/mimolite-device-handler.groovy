@@ -1,7 +1,7 @@
 /**
- *  MIMO2 Device Handler
+ *  MimoLite Device Handler
  *
- *  Copyright 2016 Christopher pratt
+ *  Copyright 2014 Todd Wackford
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -12,26 +12,45 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
+ *  Note: This device type is based on the work of Jit Jack (cesaldar) as posted on the SmartThings Community website.
+ *
+ *  This device type file will configure a Fortrezz MimoLite Wireless Interface/Bridge Module as a Garage Door 
+ *  Controller. The Garage Door must be physically configured per the following diagram: 
+ *    "http://www.fortrezz.com/index.php/component/jdownloads/finish/4/17?Itemid=0"
+ *  for all functionality to work correctly.
+ *
+ *  This device type will also set the atttibute "powered" to "powerOn" or "powerOff" accordingly. This uses
+ *  the alarm capability of the MimoLite and the status will be displayed to the user on a secondary tile. User
+ *  can subscribe to the status of this atttribute to be notified when power drops out.
+ *
+ *  This device type implements a "Configure" action tile which will set the momentary switch timeout to 25ms and
+ *  turn on the powerout alarm.
+ *
+ *  
  */
 metadata {
-	definition (name: "MIMO2 Device Handler", namespace: "FortezZ", author: "Christopher pratt") {
-		capability "Alarm"
+	// Automatically generated. Make future change here.
+	definition (name: "MimoLite Device Handler", namespace: "FortrezZ", author: "Christopher Pratt") {
+		capability "Configuration"
+		capability "Switch"
+		capability "Refresh"
 		capability "Contact Sensor"
-		capability "Relay Switch"
-		capability "Voltage Measurement"
-		capability "Zw Multichannel"
-        capability "Configuration"
-        capability "Refresh"
-        
-        attribute "powered", "string"
+        capability "Voltage Measurement"
+
+		attribute "powered", "string"
 
 		command "on"
 		command "off"
         
-        fingerprint deviceId: "0x2100", inClusters: "0x5E,0x86,0x72,0x5A,0x59,0x71,0x98,0x7A"
+        fingerprint deviceId: "0x1000", inClusters: "0x72,0x86,0x71,0x30,0x31,0x35,0x70,0x85,0x25,0x03"
 	}
+
+	simulator {
+	// Simulator stuff
     
-    
+	}
+
+	// UI tile definitions 
 	tiles {
         standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: true) {
             state "on", label: "Turn Off", action: "off", icon: "http://cdn.device-icons.smartthings.com/Lighting/light11-icn@2x.png", backgroundColor: "#53a7c0"
@@ -53,16 +72,17 @@ metadata {
 		}
         valueTile("voltage", "device.voltage") {
         state "val", label:'${currentValue}v', unit:"", defaultState: true
-    	}
+    }
 		main (["switch"])
 		details(["switch", "contact", "voltage", "powered", "refresh","configure"])
 	}
 }
 
-// parse events into attributes
 def parse(String description) {
+//log.debug "description is: ${description}"
+
 	def result = null
-	def cmd = zwave.parse(description, [0x20: 1, 0x84: 1, 0x30: 1, 0x70: 1, 0x31: 5, 0x60: 1])
+	def cmd = zwave.parse(description, [0x20: 1, 0x84: 1, 0x30: 1, 0x70: 1, 0x31: 5])
     
     //log.debug "command value is: $cmd.CMD"
     
@@ -76,24 +96,28 @@ def parse(String description) {
 	if (cmd) {
 		result = createEvent(zwaveEvent(cmd))
 	}
-    log.debug "Parse returned ${result?.descriptionText} $cmd.CMD"
+	log.debug "Parse returned ${result?.descriptionText} $cmd.CMD"
 	return result
-    
-    
-    
-    
-    // TODO: handle 'alarm' attribute
-	// TODO: handle 'contact' attribute
-	// TODO: handle 'switch' attribute
-	// TODO: handle 'voltage' attribute
-	// TODO: handle 'epEvent' attribute
-	// TODO: handle 'epInfo' attribute
-
 }
 
-// handle commands
 
-
+//notes about zwaveEvents:
+// these are special overloaded functions which MUST be returned with a map similar to (return [name: "switch", value: "on"])
+// not doing so will produce a null on the parse function, this will mess you up in the future.
+// Perhaps can use 'createEvent()' and return that as long as a map is inside it.
+def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) { 
+log.debug "switchBinaryReport"
+    if (cmd.value) // if the switch is on it will not be 0, so on = true
+    {
+    	
+		return [name: "switch", value: "on"] // change switch value to on
+    }
+    else // if the switch sensor report says its off then do...
+    {
+		return [name: "switch", value: "off"] // change switch value to off
+    }
+       
+}
 // working on next for the analogue and digital stuff.
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
 {
@@ -124,12 +148,6 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	// Handles all Z-Wave commands we aren't interested in
      log.debug("Un-parsed Z-Wave message ${cmd}")
 	[:]
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd)
-{
-	//log.debug "$cmd.endPoint"
-    log.debug "mccr"
 }
 
 def CalculateVoltage(ADCvalue)
@@ -175,27 +193,10 @@ def off() {
 }
 
 def refresh() {
-//log.debug "REFRESH!"
+log.debug "REFRESH!"
 	delayBetween([
         zwave.switchBinaryV1.switchBinaryGet().format(), //requests a report of the relay to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-        zwave.sensorMultilevelV5.sensorMultilevelGet().format(),// requests a report of the anologue input voltage
-		zwave.multiChannelV3.multiChannelCapabilityGet().format()
+        zwave.sensorMultilevelV5.sensorMultilevelGet().format()// requests a report of the anologue input voltage
+
     ])
-    log.debug "REFRESH!"
-}
-
-
-def both() {
-	log.debug "Executing 'both'"
-	// TODO: handle 'both' command
-}
-
-def enableEpEvents() {
-	log.debug "Executing 'enableEpEvents'"
-	// TODO: handle 'enableEpEvents' command
-}
-
-def epCmd() {
-	log.debug "Executing 'epCmd'"
-	// TODO: handle 'epCmd' command
 }
