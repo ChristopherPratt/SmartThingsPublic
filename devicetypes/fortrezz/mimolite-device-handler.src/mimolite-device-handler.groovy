@@ -153,8 +153,10 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 def CalculateVoltage(ADCvalue)
 {
 	 def map = [:]
+     
+     def volt = (((1.53*(10**-16))*(ADCvalue**5)) - ((1.26*(10**-12))*(ADCvalue**4)) + ((3.81*(10**-9))*(ADCvalue**3)) - ((4.77*(10**-6))*(ADCvalue**2)) + ((2.86*(10**-3))*(ADCvalue)) - (2.27*(10**-2)))
 
-    def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
+    //def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
 	//log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
 	def voltResult = volt.round(1)// + "v"
     
