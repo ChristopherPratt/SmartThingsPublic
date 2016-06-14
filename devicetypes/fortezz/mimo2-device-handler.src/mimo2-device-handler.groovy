@@ -68,8 +68,8 @@ metadata {
 // parse events into attributes
 def parse(String description) {
 	def result = null
-	def cmd = zwave.parse(description, [0x20: 1, 0x84: 1, 0x30: 1, 0x70: 1, 0x31: 5, 0x60: 3])
-    
+	def cmd = zwave.parse(description, [0x20: 1, 0x25: 1,0x84: 1, 0x30: 1, 0x70: 1, 0x31: 5, 0x60: 3, 0x98: 1])
+    //[0x20: BasicSet, 0x25: BinarySwitch 1,0x84: WakeUp , 0x30: sensorBinary, 0x70: configuration, 0x31: sensorMultiLevel, 0x60: multiChannel, 0x98: security])
     //log.debug "command value is: $cmd.CMD"
     
     if (cmd.CMD == "7105") {				//Mimo sent a power loss report
@@ -127,9 +127,9 @@ def zwaveEvent (physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevel
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
-        def encapsulatedCommand = cmd.encapsulatedCommand()
-        //def encapsulatedCommand = cmd.encapsulatedCommand([0x98: 1, 0x20: 1])
-
+        //def encapsulatedCommand = cmd.encapsulatedCommand()
+        def encapsulatedCommand = cmd.encapsulatedCommand([0x98: 1, 0x20: 1])
+		log.debug "${encapsulatedCommand}"
         // can specify command class versions here like in zwave.parse
         if (encapsulatedCommand) {
                 return zwaveEvent(encapsulatedCommand)
@@ -140,8 +140,8 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
 // can indicate that a message is coming from one of multiple subdevices
 // or "endpoints" that would otherwise be indistinguishable
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
-        def encapsulatedCommand = cmd.encapsulatedCommand()
-        //def encapsulatedCommand = cmd.encapsulatedCommand([0x30: 1, 0x31: 1])
+        //def encapsulatedCommand = cmd.encapsulatedCommand()
+        def encapsulatedCommand = cmd.encapsulatedCommand([0x25: 1, 0x31: 5, 0x20: 1])
 
         // can specify command class versions here like in zwave.parse
         log.debug ("Command from endpoint ${cmd.sourceEndPoint}: ${encapsulatedCommand}")
@@ -152,8 +152,8 @@ def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap 
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiInstanceCmdEncap cmd) {
-        def encapsulatedCommand = cmd.encapsulatedCommand()
-        //def encapsulatedCommand = cmd.encapsulatedCommand([0x30: 1, 0x31: 1])
+        //def encapsulatedCommand = cmd.encapsulatedCommand()
+        def encapsulatedCommand = cmd.encapsulatedCommand([0x25: 1, 0x26: 3, 0x20: 1])
 
         // can specify command class versions here like in zwave.parse
         log.debug ("Command from instance ${cmd.instance}: ${encapsulatedCommand}")
@@ -194,47 +194,72 @@ def CalculateVoltage(ADCvalue)
 
 def configure() {
 	log.debug "Configuring...." //setting up to monitor power alarm and actuator duration
-	delayBetween([
-		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(), // 	FYI: Group 3: If a power dropout occurs, the MIMOlite will send an Alarm Command Class report 
-        																							//	(if there is enough available residual power)
-        zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]).format(), // periodically send a multilevel sensor report of the ADC analog voltage to the input
-        zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
-        zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format() // configurationValue for parameterNumber means how many 100ms do you want the relay
-        																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
-        //zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
-	])
+    delayBetween([
+    encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 0),
+    encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 1),
+    encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 2),
+    encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 3),
+    encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 4),
+    zwave.configurationV1.configurationSet(configurationValue: [0x00], parameterNumber: 1, size: 1).format(),
+    zwave.configurationV1.configurationSet(configurationValue: [0x00], parameterNumber: 2, size: 1).format(),
+    zwave.configurationV1.configurationSet(configurationValue: [0x01], parameterNumber: 3, size: 1).format(),
+    zwave.configurationV1.configurationSet(configurationValue: [0x01], parameterNumber: 9, size: 1).format()],
+    200)
+    log.debug ("Configuration Complete!")
+    
+	//delayBetween([
+	//	zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]).format(), // 	FYI: Group 3: If a power dropout occurs, the MIMOlite will send an Alarm Command Class report 
+    //    																							//	(if there is enough available residual power)
+    //    zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]).format(), // periodically send a multilevel sensor report of the ADC analog voltage to the input
+    //    zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
+    //    zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format() // configurationValue for parameterNumber means how many 100ms do you want the relay
+    //    																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
+    //    //zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
+	//])
 }
 
 def on() {
-	delayBetween([
-		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:1, parameter:[255]).format(),
-		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:2).format()
-	])
-        //encap(zwave.basicV1.basicSet(value: 0xFF), 3)	// physically changes the relay from on to off and requests a report of the relay
-        //refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+	//delayBetween([
+	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:1, parameter:[255]).format(),
+	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:2).format()
+	//])
+        encap(zwave.basicV1.basicSet(value: 0xFF), 3)	// physically changes the relay from on to off and requests a report of the relay
+        refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
 }
 
 def off() {
-	delayBetween([
-		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:1, parameter:[0]).format(),
-		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:2).format()
-	])
-    	//encap(zwave.basicV1.basicSet(value: 0x00), 3)	// physically changes the relay from on to off and requests a report of the relay
-       // refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+	//delayBetween([
+	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:1, parameter:[0]).format(),
+	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:2).format()
+	//])
+    	encap(zwave.basicV1.basicSet(value: 0x00), 3)	// physically changes the relay from on to off and requests a report of the relay
+        refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
 }
 
 def on2() {
 		//command(zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: 4).encapsulate(zwave.basicV1.basicSet(value: 0xFF)))
 		log.debug "on2"
-		encap(zwave.basicV1.basicSet(value: 0xFF), 4)	// physically changes the relay from on to off and requests a report of the relay
+		//encap(zwave.basicV1.basicSet(value: 0xFF), 4)	// physically changes the relay from on to off and requests a report of the relay
        // refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+       endEvent(name: "relay2", value: "on")
+       delayBetween([
+		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:1, destinationEndPoint: 4, commandClass:37, command:1, parameter:[255]),
+		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:1, destinationEndPoint: 4, commandClass:37, command:2)
+	])
+    s
 }
 
 def off2() {
 		//command(zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: 4).encapsulate(zwave.basicV1.basicSet(value: 0x00)))
 		log.debug "off2"
-		encap(zwave.basicV1.basicSet(value: 0x00), 4)	// physically changes the relay from on to off and requests a report of the relay
+		//encap(zwave.basicV1.basicSet(value: 0x00), 4)	// physically changes the relay from on to off and requests a report of the relay
        // refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
+       sendEvent(name: "relay2", value: "off")
+       delayBetween([
+		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:1, destinationEndPoint: 4, commandClass:37, command:1, parameter:[0]),
+		zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:1, destinationEndPoint: 4, commandClass:37, command:2)
+	])
+    
 }
 
 def refresh() {
@@ -274,7 +299,9 @@ private command(physicalgraph.zwave.Command cmd) {
 private encap(cmd, endpoint) {
 	//log.debug "before encapsulate"
 	if (endpoint) {
-		command(zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint: endpoint, destinationEndPoint: endpoint).encapsulate(cmd))
+		//command(zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint: endpoint, destinationEndPoint: endpoint).encapsulate(cmd))
+		command(zwave.multiChannelV3.multiChannelCmdEncap(bitAddress: false, destinationEndPoint: endpoint).encapsulate(cmd))
+
 	} else {
 		command(cmd)
 	}
