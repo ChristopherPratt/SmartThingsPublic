@@ -1,7 +1,7 @@
 /**
- *  MimoLite Device Handler
+ *  FortrezZ Flow Meter Interface
  *
- *  Copyright 2014 Todd Wackford
+ *  Copyright 2016 FortrezZ, LLC
  *
  *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
  *  in compliance with the License. You may obtain a copy of the License at:
@@ -12,21 +12,7 @@
  *  on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License
  *  for the specific language governing permissions and limitations under the License.
  *
- *  Note: This device type is based on the work of Jit Jack (cesaldar) as posted on the SmartThings Community website.
- *
- *  This device type file will configure a Fortrezz MimoLite Wireless Interface/Bridge Module as a Garage Door 
- *  Controller. The Garage Door must be physically configured per the following diagram: 
- *    "http://www.fortrezz.com/index.php/component/jdownloads/finish/4/17?Itemid=0"
- *  for all functionality to work correctly.
- *
- *  This device type will also set the atttibute "powered" to "powerOn" or "powerOff" accordingly. This uses
- *  the alarm capability of the MimoLite and the status will be displayed to the user on a secondary tile. User
- *  can subscribe to the status of this atttribute to be notified when power drops out.
- *
- *  This device type implements a "Configure" action tile which will set the momentary switch timeout to 25ms and
- *  turn on the powerout alarm.
- *
- *  
+ *  Based on Todd Wackford's MimoLite Garage Door Opener
  */
 metadata {
 	// Automatically generated. Make future change here.
@@ -49,12 +35,17 @@ metadata {
 	// Simulator stuff
     
 	}
+    
+    preferences {
+       input "RelaySwitchDelay", "decimal", title: "Delay between relay switch on and off in seconds. Only Numbers 0 to 25.5 allowed. 0 value will remove delay and allow relay to function as a standard switch", description: "Numbers 0 to 25.5 allowed.", defaultValue: 0, required: false, displayDuringSetup: true
+    }
+
 
 	// UI tile definitions 
 	tiles {
-        standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: true) {
-            state "on", label: "Turn Off", action: "off", icon: "http://cdn.device-icons.smartthings.com/Lighting/light11-icn@2x.png", backgroundColor: "#53a7c0"
-			state "off", label: 'Turn On', action: "on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+        standardTile("switch", "device.switch", width: 2, height: 2, canChangeIcon: true, , decoration: "flat") {
+            state "on", label: "Turn Off", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/switch_on.png", backgroundColor: "#53a7c0"
+			state "off", label: 'Turn On', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/switch_off.png", backgroundColor: "#ffffff"
         }
         standardTile("contact", "device.contact", inactiveLabel: false) {
 			state "open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
@@ -154,7 +145,7 @@ def CalculateVoltage(ADCvalue)
 {
 	 def map = [:]
      
-     def volt = (((1.53*(10**-16))*(ADCvalue**5)) - ((1.26*(10**-12))*(ADCvalue**4)) + ((3.81*(10**-9))*(ADCvalue**3)) - ((4.77*(10**-6))*(ADCvalue**2)) + ((2.86*(10**-3))*(ADCvalue)) - (2.27*(10**-2)))
+     def volt = (((1.534*(10**-16))*(ADCvalue**5)) - ((1.263*(10**-12))*(ADCvalue**4)) + ((3.811*(10**-9))*(ADCvalue**3)) - ((4.774*(10**-6))*(ADCvalue**2)) + ((2.856*(10**-3))*(ADCvalue)) - (2.272*(10**-2)))
 
     //def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
 	//log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
@@ -168,13 +159,15 @@ def CalculateVoltage(ADCvalue)
 	
 
 def configure() {
-	log.debug "Configuring...." //setting up to monitor power alarm and actuator duration
+	def x = (RelaySwitchDelay*10).toInteger()
+    log.debug "Configuring.... " //setting up to monitor power alarm and actuator duration
+    
 	delayBetween([
 		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(), // 	FYI: Group 3: If a power dropout occurs, the MIMOlite will send an Alarm Command Class report 
         																							//	(if there is enough available residual power)
         zwave.associationV1.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]).format(), // periodically send a multilevel sensor report of the ADC analog voltage to the input
         zwave.associationV1.associationSet(groupingIdentifier:4, nodeId:[zwaveHubNodeId]).format(), // when the input is digitally triggered or untriggered, snd a binary sensor report
-        zwave.configurationV1.configurationSet(configurationValue: [0], parameterNumber: 11, size: 1).format() // configurationValue for parameterNumber means how many 100ms do you want the relay
+        zwave.configurationV1.configurationSet(configurationValue: [x], parameterNumber: 11, size: 1).format() // configurationValue for parameterNumber means how many 100ms do you want the relay
         																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
         //zwave.configurationV1.configurationGet(parameterNumber: 11).format() // gets the new parameter changes. not currently needed. (forces a null return value without a zwaveEvent funciton
 	])
