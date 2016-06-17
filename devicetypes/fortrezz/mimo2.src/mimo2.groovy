@@ -22,6 +22,7 @@ metadata {
         capability "Configuration"
         capability "Refresh"
         
+        
         attribute "powered", "string"
         attribute "relay2", "string"
         attribute "contact2", "string"
@@ -44,13 +45,13 @@ metadata {
     }
     
 	tiles {
-        standardTile("relay", "device.switch", width: 2, height: 2, canChangeIcon: true, decoration: "flat") {
-            state "on", label: "Relay 1 On", action: "off", icon: "http://cdn.device-icons.smartthings.com/Lighting/light11-icn@2x.png", backgroundColor: "#53a7c0"
-			state "off", label: 'Relay 1 Off', action: "on", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+         standardTile("relay", "device.switch", width: 2, height: 2, canChangeIcon: true) {
+            state "on", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
+			state "off", label: 'Relay 1 Off', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
         }
-         standardTile("relay2", "device.switch2", width: 2, height: 2, canChangeIcon: true, decoration: "flat") {
-            state "on2", label: "Relay 2 On", action: "off2", icon: "http://cdn.device-icons.smartthings.com/Lighting/light11-icn@2x.png", backgroundColor: "#53a7c0"
-			state "off2", label: 'Relay 2 Off', action: "on2", icon: "st.switches.switch.off", backgroundColor: "#ffffff"
+         standardTile("relay2", "device.switch2", width: 2, height: 2, canChangeIcon: true) {
+            state "on2", label: "Relay 2 On", action: "off2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
+			state "off2", label: 'Relay 2 Off', action: "on2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
         }
         standardTile("contact", "device.contact", inactiveLabel: false) {
 			state "open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
