@@ -103,20 +103,22 @@ def parse(String description) {
 	return result
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
+def zwaveEvent(int endPoint, physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
 {
 	log.debug "sent a BasicSet command"
-    //refresh()  
-    delayBetween([zwave.sensorMultilevelV5.sensorMultilevelGet().format()])// requests a report of the anologue input voltage
-	return [name: "contact", value: cmd.value ? "open" : "closed"]
-    //return [name: "contact", value: cmd.value ? "open" : "closed", type: "digital"]
+	if (endPoint == 1)
+    	{return [name: "contact", value: cmd.value ? "open" : "closed"]}
+    else if (endPoint == 2) 
+    	{return [name: "contact2", value: cmd.value ? "open" : "closed"]}
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
+def zwaveEvent(int endPoint, physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
 {
 	log.debug "sent a sensorBinaryReport command"
-	refresh()    
-	return [name: "contact", value: cmd.value ? "open" : "closed"]
+	if (endPoint == 1)
+    	{return [name: "contact", value: cmd.value ? "open" : "closed"]}
+    else if (endPoint == 2) 
+    	{return [name: "contact2", value: cmd.value ? "open" : "closed"]}
 }
 
 def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd)
@@ -187,17 +189,6 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	// Handles all Z-Wave commands we aren't interested in
      log.debug("Un-parsed Z-Wave message ${cmd}")
 	return [:]
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCapabilityReport cmd)
-{
-	//log.debug "$cmd.endPoint"
-    log.debug "mccr"
-}
-
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityCommandsSupportedReport cmd)
-{
-    log.debug "SCSR"
 }
 
 def CalculateVoltage(ADCvalue)
