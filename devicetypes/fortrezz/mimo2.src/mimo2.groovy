@@ -40,20 +40,24 @@ metadata {
     
     preferences {
     	section {
-        input ("RelaySwitchDelay", "decimal", range: "0..3", title: "Relay 1 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
+        input ("RelaySwitchDelay", "decimal", title: "Relay 1 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
     
-        input ("RelaySwitchDelay2", "decimal", range: "0..3", title: "Relay 2 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
+        input ("RelaySwitchDelay2", "decimal", title: "Relay 2 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
         } // the range would ve 0 to 3.1, but the range value would accept 3.1, only whole numbers (i tried paranthesis and fractions too. :( )
     }
     
 	tiles {
-         standardTile("relay", "device.switch1", width: 2, height: 2, canChangeIcon: true, inactiveLabel: false) {
+         standardTile("relay", "device.switch1", width: 2, height: 2,inactiveLabel: false) {
             state "on", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
-			state "off", label: 'Relay 1 Off', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+			state "off", label: '${name}', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+            state "onIcon", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
+            state "offIcon", label: "Relay 1 Off", action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+
+
         }
-         standardTile("relay2", "device.switch2", width: 2, height: 2, canChangeIcon: true, inactiveLabel: false) {
-            state "on2", label: "Relay 2 On", action: "off2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
-			state "off2", label: 'Relay 2 Off', action: "on2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+         standardTile("relay2", "device.switch2", width: 2, height: 2, inactiveLabel: false) {
+            state "on2", label: "Relay 2 On", action: "off2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0", nextState: "off2"
+			state "off2", label: 'Relay 2 Off', action: "on2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff", nextState: "on2"
         }
         standardTile("contact", "device.contact", inactiveLabel: false) {
 			state "open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
@@ -130,24 +134,25 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
     if (endPoint == 3)
     {
     	if (cmd.value)
-    		{map.value = "on"}
+    		{map.value = "onIcon"}
     	else
-    		{map. value = "off"}
+    		{map.value = "offIcon"}
         map.name = "relay"
         //sendEvent(name: "powered", value: "powerOff"
         log.debug "sent a SwitchBinary command $map.name $map.value"
-        return [name: "relay", value: cmd.value ? "on" : "off"]
+        return [name: "relay", value: cmd.value ? "onIcon" : "offIcon"]
     }
     else if (endPoint == 4)
     {
     	if (cmd.value)
     		{map.value = "on2"}
     	else
-    		{map. value = "off2"}
+    		{map.value = "off2"}
         map.name = "relay2"
         sendEvent(name: "relay2", value: "$map.value")
         log.debug "sent a SwitchBinary command $map.name $map.value"
-        return [name: "relay2", value: cmd.value ? "on2" : "off2"]
+        //return [name: "relay2", value: cmd.value ? "on2" : "off2"]
+        return createEvent(name: "relay2", value: "off2")
     }
     
 	//return map
