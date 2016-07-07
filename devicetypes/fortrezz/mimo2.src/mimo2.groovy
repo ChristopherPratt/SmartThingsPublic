@@ -17,7 +17,7 @@ metadata {
 	definition (name: "MIMO2+", namespace: "fortrezz", author: "FortrezZ, LLC") {
 		capability "Alarm"
 		capability "Contact Sensor"
-		capability "Relay Switch"
+		capability "Switch"
 		capability "Voltage Measurement"
         capability "Configuration"
         capability "Refresh"
@@ -47,11 +47,11 @@ metadata {
     }
     
 	tiles {
-         standardTile("relay", "device.switch1", width: 2, height: 2,inactiveLabel: false) {
-            state "on", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
-			state "off", label: '${name}', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+         standardTile("switch", "device.switch1", width: 2, height: 2, canChangeIcon: true) {
             state "onIcon", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
             state "offIcon", label: "Relay 1 Off", action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+            state "on", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"            
+			state "off", label: '${name}', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
 
 
         }
@@ -83,8 +83,8 @@ metadata {
         valueTile("voltage2", "device.voltage2") {
             state "val", label:'${currentValue}v', unit:"", defaultState: true
     	}
-		main (["relay"])
-		details(["relay", "contact", "voltage", "relay2", "contact2", "voltage2", "powered", "refresh","configure"])
+		main (["switch"])
+		details(["switch", "contact", "voltage", "relay2", "contact2", "voltage2", "powered", "refresh","configure"])
 	}
 }
 
@@ -140,7 +140,7 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
         map.name = "relay"
         //sendEvent(name: "powered", value: "powerOff"
         log.debug "sent a SwitchBinary command $map.name $map.value"
-        return [name: "relay", value: cmd.value ? "onIcon" : "offIcon"]
+        return [name: "switch", value: cmd.value ? "onIcon" : "offIcon", type: "digital"]
     }
     else if (endPoint == 4)
     {
@@ -151,8 +151,8 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
         map.name = "relay2"
         sendEvent(name: "relay2", value: "$map.value")
         log.debug "sent a SwitchBinary command $map.name $map.value"
-        //return [name: "relay2", value: cmd.value ? "on2" : "off2"]
-        return createEvent(name: "relay2", value: "off2")
+        return [name: "relay2", value: cmd.value ? "on2" : "off2"]
+        //return createEvent(name: "relay2", value: "off2")
     }
     
 	//return map
@@ -249,7 +249,7 @@ def on() {
         	
 	return delayBetween([
         encap(zwave.basicV1.basicSet(value: 0xff), 3), // physically changes the relay from on to off and requests a report of the relay
-        encap(zwave.switchBinaryV1.switchBinaryGet(), 3) // request a report to make sure that the relay has been switched
+        //encap(zwave.switchBinaryV1.switchBinaryGet(), 3) // request a report to make sure that the relay has been switched
     	],300)
 }
 
@@ -261,7 +261,7 @@ def off() {
 
     return delayBetween([
         encap(zwave.basicV1.basicSet(value: 0x00), 3), // physically changes the relay from on to off and requests a report of the relay
-        encap(zwave.switchBinaryV1.switchBinaryGet(), 3) // request a report to make sure that the relay has been switched
+        //encap(zwave.switchBinaryV1.switchBinaryGet(), 3) // request a report to make sure that the relay has been switched
     	],300)
 }
 
@@ -272,7 +272,7 @@ def on2() {
        //sendEvent(name: "relay2", value: "on2")
    return delayBetween([
         encap(zwave.basicV1.basicSet(value: 0xff), 4), // physically changes the relay from on to off and requests a report of the relay
-        encap(zwave.switchBinaryV1.switchBinaryGet(), 4) // request a report to make sure that the relay has been switched
+        //encap(zwave.switchBinaryV1.switchBinaryGet(), 4) // request a report to make sure that the relay has been switched
     ],300)
 }
 
@@ -284,7 +284,7 @@ def off2() {
        //sendEvent(name: "relay2", value: "off2")
     return delayBetween([
         encap(zwave.basicV1.basicSet(value: 0x00), 4), // physically changes the relay from on to off and requests a report of the relay
-        encap(zwave.switchBinaryV1.switchBinaryGet(), 4) // request a report to make sure that the relay has been switched
+        //encap(zwave.switchBinaryV1.switchBinaryGet(), 4) // request a report to make sure that the relay has been switched
     ],300)
 }
 
