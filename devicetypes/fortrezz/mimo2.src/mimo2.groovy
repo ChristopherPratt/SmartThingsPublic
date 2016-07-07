@@ -39,23 +39,20 @@ metadata {
 	}
     
     preferences {
-    	section {
+
         input ("RelaySwitchDelay", "decimal", title: "Relay 1 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
     
         input ("RelaySwitchDelay2", "decimal", title: "Relay 2 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
         } // the range would ve 0 to 3.1, but the range value would accept 3.1, only whole numbers (i tried paranthesis and fractions too. :( )
-    }
+
     
 	tiles {
-         standardTile("switch", "device.switch1", width: 2, height: 2, canChangeIcon: true) {
-            state "onIcon", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
-            state "offIcon", label: "Relay 1 Off", action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
+         standardTile("switch", "device.switch", width: 2, height: 2) {
             state "on", label: "Relay 1 On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"            
-			state "off", label: '${name}', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
-
+			state "off", label: "Relay 1 Off", action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
 
         }
-         standardTile("relay2", "device.switch2", width: 2, height: 2, inactiveLabel: false) {
+         standardTile("switch2", "device.switch2", width: 2, height: 2, inactiveLabel: false) {
             state "on2", label: "Relay 2 On", action: "off2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0", nextState: "off2"
 			state "off2", label: 'Relay 2 Off', action: "on2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff", nextState: "on2"
         }
@@ -84,7 +81,7 @@ metadata {
             state "val", label:'${currentValue}v', unit:"", defaultState: true
     	}
 		main (["switch"])
-		details(["switch", "contact", "voltage", "relay2", "contact2", "voltage2", "powered", "refresh","configure"])
+		details(["switch", "contact", "voltage", "switch2", "contact2", "voltage2", "powered", "refresh","configure"])
 	}
 }
 
@@ -92,9 +89,6 @@ metadata {
 def parse(String description) {
 	def result = null
 	def cmd = zwave.parse(description)
-    	//def cmd = zwave.parse(description, [0x20: 1, 0x25: 1,0x84: 1, 0x30: 1, 0x70: 1, 0x31: 5, 0x60: 3, 0x98: 1])
-    //[0x20: BasicSet, 0x25: BinarySwitch 1,0x84: WakeUp , 0x30: sensorBinary, 0x70: configuration, 0x31: sensorMultiLevel, 0x60: multiChannel, 0x98: security])
-    //log.debug "command value is: $cmd.CMD"
     
     if (cmd.CMD == "7105") {				//Mimo sent a power loss report
     	log.debug "Device lost power"
@@ -102,12 +96,16 @@ def parse(String description) {
     } else {
     	sendEvent(name: "powered", value: "powerOn", descriptionText: "$device.displayName regained power")
     }
-    //log.debug "${device.currentValue('contact')}" // debug message to make sure the contact tile is working
 	if (cmd) {
 		result = createEvent(zwaveEvent(cmd))
 	}
     log.debug "Parse returned ${result?.descriptionText} $cmd.CMD"
 	return result
+}
+
+def updated() { // neat built-in smartThings function which automatically runs whenever any setting inputs are changed in the preferences menu of the device handler
+	log.debug "Settings Updated..."
+    configure()
 }
 
 def zwaveEvent(int endPoint, physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
@@ -134,13 +132,12 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
     if (endPoint == 3)
     {
     	if (cmd.value)
-    		{map.value = "onIcon"}
+    		{map.value = "on"}
     	else
-    		{map.value = "offIcon"}
-        map.name = "relay"
-        //sendEvent(name: "powered", value: "powerOff"
+    		{map.value = "off"}
+        map.name = "switch"
         log.debug "sent a SwitchBinary command $map.name $map.value"
-        return [name: "switch", value: cmd.value ? "onIcon" : "offIcon", type: "digital"]
+        return [name: "switch", value: cmd.value ? "on" : "off"]
     }
     else if (endPoint == 4)
     {
@@ -148,14 +145,11 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
     		{map.value = "on2"}
     	else
     		{map.value = "off2"}
-        map.name = "relay2"
+        map.name = "switch2"
         sendEvent(name: "relay2", value: "$map.value")
         log.debug "sent a SwitchBinary command $map.name $map.value"
-        return [name: "relay2", value: cmd.value ? "on2" : "off2"]
-        //return createEvent(name: "relay2", value: "off2")
+        return [name: "switch2", value: cmd.value ? "on2" : "off2"]
     }
-    
-	//return map
 }
    
 def zwaveEvent (int endPoint, physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) // sensorMultilevelReport is used to report the value of the analog voltage for SIG1
@@ -174,12 +168,11 @@ def zwaveEvent (int endPoint, physicalgraph.zwave.commands.sensormultilevelv5.Se
         map.value = volatageVal
         map.unit = "v"
     }
-	log.debug "sent a SensorMultilevelReport $map.name" // ${map.value}v"
+	log.debug "sent a SensorMultilevelReport $map.name"
     return map
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
-    //def encapsulatedCommand = cmd.encapsulatedCommand()
     def encapsulatedCommand = cmd.encapsulatedCommand()
     // can specify command class versions here like in zwave.parse
     if (encapsulatedCommand) {
@@ -191,10 +184,7 @@ def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulat
 // can indicate that a message is coming from one of multiple subdevices
 // or "endpoints" that would otherwise be indistinguishable
 def zwaveEvent(physicalgraph.zwave.commands.multichannelv3.MultiChannelCmdEncap cmd) {
-    //def encapsulatedCommand = cmd.encapsulatedCommand()
     def encapsulatedCommand = cmd.encapsulatedCommand()
-
-    // can specify command class versions here like in zwave.parse
     log.debug ("Command from endpoint ${cmd.sourceEndPoint}: ${encapsulatedCommand}")
 
     if (encapsulatedCommand) {
@@ -210,21 +200,14 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 
 def CalculateVoltage(ADCvalue)
 {
-     def volt = (((6.60*(10**-17))*(ADCvalue**5)) - ((5.46*(10**-13))*(ADCvalue**4)) + ((1.77*(10**-9))*(ADCvalue**3)) - ((2.07*(10**-6))*(ADCvalue**2)) + ((1.57*(10**-3))*(ADCvalue)) - (5.53*(10**-3)))
-
-    //def volt = (((3.19*(10**-16))*(ADCvalue**5)) - ((2.18*(10**-12))*(ADCvalue**4)) + ((5.47*(10**-9))*(ADCvalue**3)) - ((5.68*(10**-6))*(ADCvalue**2)) + (0.0028*ADCvalue) - (0.0293))
-	//log.debug "$cmd.scale $cmd.precision $cmd.size $cmd.sensorType $cmd.sensorValue $cmd.scaledSensorValue"
+    def volt = (((6.60*(10**-17))*(ADCvalue**5)) - ((5.46*(10**-13))*(ADCvalue**4)) + ((1.77*(10**-9))*(ADCvalue**3)) - ((2.07*(10**-6))*(ADCvalue**2)) + ((1.57*(10**-3))*(ADCvalue)) - (5.53*(10**-3)))
 	return volt.round(1)
 }
 	
 
 def configure() {
-	def delay = (RelaySwitchDelay*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10
-    
-    	    
+	def delay = (RelaySwitchDelay*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10  
     def delay2 = (RelaySwitchDelay2*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10
-    
-    	    
 	log.debug "Configuring...." 
     
     return delayBetween([
@@ -241,55 +224,28 @@ def configure() {
     ], 200)
 }
 
-def on() {
-	//delayBetween([
-	//	sourceEndPoinzwave.multiChannelV3.multiChannelCmdEncap(t:3, destinationEndPoint: 3, commandClass:37, command:1, parameter:[255]).format(),
-	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:2).format()
-	//])
-        	
-	return delayBetween([
-        encap(zwave.basicV1.basicSet(value: 0xff), 3), // physically changes the relay from on to off and requests a report of the relay
-        //encap(zwave.switchBinaryV1.switchBinaryGet(), 3) // request a report to make sure that the relay has been switched
-    	],300)
+def on() {	
+	return encap(zwave.basicV1.basicSet(value: 0xff), 3) // physically changes the relay from on to off and requests a report of the relay
+    // oddly, smartThings automatically sends a switchBinaryGet() command whenever the above basicSet command is sent, so we don't need to send one here.
 }
 
 def off() {
-	//delayBetween([
-	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:1, parameter:[0]).format(),
-	//	zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint:3, destinationEndPoint: 3, commandClass:37, command:2).format()
-	//])
-
-    return delayBetween([
-        encap(zwave.basicV1.basicSet(value: 0x00), 3), // physically changes the relay from on to off and requests a report of the relay
-        //encap(zwave.switchBinaryV1.switchBinaryGet(), 3) // request a report to make sure that the relay has been switched
-    	],300)
+    return encap(zwave.basicV1.basicSet(value: 0x00), 3) // physically changes the relay from on to off and requests a report of the relay
+		// oddly, smartThings automatically sends a switchBinaryGet() command whenever the above basicSet command is sent, so we don't need to send one here.
 }
 
 def on2() {
-		//command(zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: 4).encapsulate(zwave.basicV1.basicSet(value: 0xFF)))
-		//encap(zwave.basicV1.basicSet(value: 0xFF), 4)	// physically changes the relay from on to off and requests a report of the relay
-       // refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-       //sendEvent(name: "relay2", value: "on2")
-   return delayBetween([
-        encap(zwave.basicV1.basicSet(value: 0xff), 4), // physically changes the relay from on to off and requests a report of the relay
-        //encap(zwave.switchBinaryV1.switchBinaryGet(), 4) // request a report to make sure that the relay has been switched
-    ],300)
+   return encap(zwave.basicV1.basicSet(value: 0xff), 4)
+        // oddly, smartThings automatically sends a switchBinaryGet() command whenever the above basicSet command is sent, so we don't need to send one here.
 }
 
 def off2() {
-		//command(zwave.multiChannelV3.multiChannelCmdEncap(destinationEndPoint: 4).encapsulate(zwave.basicV1.basicSet(value: 0x00)))
-		//log.debug "off2"
-		//encap(zwave.basicV1.basicSet(value: 0x00), 4)	// physically changes the relay from on to off and requests a report of the relay
-       // refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()
-       //sendEvent(name: "relay2", value: "off2")
-    return delayBetween([
-        encap(zwave.basicV1.basicSet(value: 0x00), 4), // physically changes the relay from on to off and requests a report of the relay
-        //encap(zwave.switchBinaryV1.switchBinaryGet(), 4) // request a report to make sure that the relay has been switched
-    ],300)
+    return encap(zwave.basicV1.basicSet(value: 0x00), 4)
+        // oddly, smartThings automatically sends a switchBinaryGet() command whenever the above basicSet command is sent, so we don't need to send one here.
 }
 
 def refresh() {
-//log.debug "REFRESH!"
+	log.debug "Refresh"
 	return delayBetween([
          encap(zwave.sensorMultilevelV5.sensorMultilevelGet(), 1),// requests a report of the anologue input voltage for SIG1
          encap(zwave.sensorMultilevelV5.sensorMultilevelGet(), 2),// requests a report of the anologue input voltage for SIG2
@@ -307,11 +263,8 @@ private secureSequence(commands, delay=200) {
 }
 
 private encap(cmd, endpoint) {
-	//log.debug "before encapsulate"
 	if (endpoint) {
-		//command(zwave.multiChannelV3.multiChannelCmdEncap(sourceEndPoint: endpoint, destinationEndPoint: endpoint).encapsulate(cmd))
 		return secure(zwave.multiChannelV3.multiChannelCmdEncap(bitAddress: false, sourceEndPoint:0, destinationEndPoint: endpoint).encapsulate(cmd))
-
 	} else {
 		return secure(cmd)
 	}
