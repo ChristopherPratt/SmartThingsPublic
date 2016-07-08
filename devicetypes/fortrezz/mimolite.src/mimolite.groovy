@@ -93,7 +93,7 @@ def parse(String description) {
 
 def updated() {
 	log.debug "Settings Updated..."
-    configure()
+    return response(configure())
 }
 //notes about zwaveEvents:
 // these are special overloaded functions which MUST be returned with a map similar to (return [name: "switch", value: "on"])
@@ -162,8 +162,19 @@ def CalculateVoltage(ADCvalue)
 	
 
 def configure() {
-	def x = (RelaySwitchDelay*10).toInteger()
+	
     log.debug "Configuring.... " //setting up to monitor power alarm and actuator duration
+    def x = (RelaySwitchDelay*10).toInteger()
+    if (x > 25.5)
+    {
+    	x = 25.5
+        log.debug "Parameter input setting is beyond max value of 25.5 - forced back to 25.5"
+	}
+        if (x < 0)
+    {
+    	x = 0
+        log.debug "Parameter input setting is below min value of 0 - forced back to 0"
+	}
     
 	delayBetween([
 		zwave.associationV1.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]).format(), // 	FYI: Group 3: If a power dropout occurs, the MIMOlite will send an Alarm Command Class report 

@@ -43,7 +43,9 @@ metadata {
         input ("RelaySwitchDelay", "decimal", title: "Relay 1 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
     
         input ("RelaySwitchDelay2", "decimal", title: "Relay 2 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
-        } // the range would ve 0 to 3.1, but the range value would accept 3.1, only whole numbers (i tried paranthesis and fractions too. :( )
+        } // the range would be 0 to 3.1, but the range value would not accept 3.1, only whole numbers (i tried paranthesis and fractions too. :( )
+        input ("SIG1AD", "bool", title: "Choose setting of SIG1 Behavior: Swipe right for analogue and swipe left for digital.", defaultValue: false, required: false, displayDuringSetup: true)
+        input ("SIG2AD", "bool", title: "Choose setting of SIG2 Behavior: Swipe right for analogue and swipe left for digital.", defaultValue: false, required: false, displayDuringSetup: true)
 
     
 	tiles {
@@ -104,11 +106,11 @@ def parse(String description) {
 }
 
 def updated() { // neat built-in smartThings function which automatically runs whenever any setting inputs are changed in the preferences menu of the device handler
-	log.debug "Settings Updated..."
-    configure()
+    log.debug "Settings Updated..."
+    return response(configure()) // the response() function is used for sending commands in reponse to an event, without it, no zWave commands will work for contained function
 }
 
-def zwaveEvent(int endPoint, physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1
+def zwaveEvent(int endPoint, physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1 and SIG2
 {
 	log.debug "sent a BasicSet command"
 	if (endPoint == 1)
@@ -117,7 +119,7 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.basicv1.BasicSet cmd) 
     	{return [name: "contact2", value: cmd.value ? "open" : "closed"]}
 }
 
-def zwaveEvent(int endPoint, physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd)
+def zwaveEvent(int endPoint, physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) // event to get the state of the digital sensor SIG1 and SIG2
 {
 	log.debug "sent a sensorBinaryReport command"
 	if (endPoint == 1)
@@ -126,17 +128,17 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.sensorbinaryv1.SensorB
     	{return [name: "contact2", value: cmd.value ? "open" : "closed"]}
 }
 
-def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd)
+def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) // event for seeing the states of relay 1 and relay 2
 {
-	def map = [:]
+	def map = [:] // map for containing the name and state fo the specified relay
     if (endPoint == 3)
     {
-    	if (cmd.value)
+    	if (cmd.value) // possible values are 255 and 0 (0 is false)
     		{map.value = "on"}
     	else
     		{map.value = "off"}
         map.name = "switch"
-        log.debug "sent a SwitchBinary command $map.name $map.value"
+        log.debug "sent a SwitchBinary command $map.name $map.value" // the map is only used for debug messages. not for the return command to the device
         return [name: "switch", value: cmd.value ? "on" : "off"]
     }
     else if (endPoint == 4)
@@ -147,7 +149,7 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
     		{map.value = "off2"}
         map.name = "switch2"
         sendEvent(name: "relay2", value: "$map.value")
-        log.debug "sent a SwitchBinary command $map.name $map.value"
+        log.debug "sent a SwitchBinary command $map.name $map.value" // the map is only used for debug messages. not for the return command to the device
         return [name: "switch2", value: cmd.value ? "on2" : "off2"]
     }
 }
@@ -155,7 +157,7 @@ def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchB
 def zwaveEvent (int endPoint, physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd) // sensorMultilevelReport is used to report the value of the analog voltage for SIG1
 {
 	def map = [:]
-    def volatageVal = CalculateVoltage(cmd.scaledSensorValue)
+    def volatageVal = CalculateVoltage(cmd.scaledSensorValue) // saving the scaled Sensor Value used to enter into a large formula to determine actual voltage value
     if (endPoint == 1)
     {
         map.name = "voltage"
@@ -172,7 +174,7 @@ def zwaveEvent (int endPoint, physicalgraph.zwave.commands.sensormultilevelv5.Se
     return map
 }
 
-def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) {
+def zwaveEvent(physicalgraph.zwave.commands.securityv1.SecurityMessageEncapsulation cmd) { //standard security encapsulation event code (should be the same on all device handlers)
     def encapsulatedCommand = cmd.encapsulatedCommand()
     // can specify command class versions here like in zwave.parse
     if (encapsulatedCommand) {
@@ -198,7 +200,7 @@ def zwaveEvent(physicalgraph.zwave.Command cmd) {
 	return [:]
 }
 
-def CalculateVoltage(ADCvalue)
+def CalculateVoltage(ADCvalue) // used to calculate the voltage based on the collected Scaled sensor value of the multilevel sensor event
 {
     def volt = (((6.60*(10**-17))*(ADCvalue**5)) - ((5.46*(10**-13))*(ADCvalue**4)) + ((1.77*(10**-9))*(ADCvalue**3)) - ((2.07*(10**-6))*(ADCvalue**2)) + ((1.57*(10**-3))*(ADCvalue)) - (5.53*(10**-3)))
 	return volt.round(1)
@@ -206,9 +208,36 @@ def CalculateVoltage(ADCvalue)
 	
 
 def configure() {
+	log.debug "Configuring...." 
 	def delay = (RelaySwitchDelay*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10  
     def delay2 = (RelaySwitchDelay2*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10
-	log.debug "Configuring...." 
+	if (delay > 31) 
+    {
+        log.debug "Relay 1 input ${delay / 10} set too high. Max value is 3.1"
+        delay = 31
+    }
+    if (delay < 0) 
+    {
+        log.debug "Relay 1 input ${delay / 10} set too low. Min value is 0"
+        delay = 0
+    }
+    if (delay2 > 31) 
+    {
+    	log.debug "Relay 2 input ${delay2 / 10} set too high. Max value is 3.1"
+    	delay2 = 31
+    }
+     if (delay2 < 0) 
+    {
+    	log.debug "Relay 2 input ${delay2 / 10} set too low. Min value is 0"
+    	delay = 0
+    } 
+    def SIG1ADsetting
+    if (SIG1AD) {SIG1ADsetting = 0x40}
+    else { SIG1ADsetting = 0x01}
+    def SIG2ADsetting
+    if (SIG2AD) {SIG2ADsetting = 0x40}
+    else { SIG2ADsetting = 0x01}
+    
     
     return delayBetween([
     	encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 0), // sending the 5 associationSet messages forces the MIMO2 to be in default configuration
@@ -216,11 +245,20 @@ def configure() {
     	encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 2),
         encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 3),
         encap(zwave.associationV1.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 4),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x01], parameterNumber: 3, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG1
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x01], parameterNumber: 9, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG2
+        secure(zwave.configurationV1.configurationSet(configurationValue: [SIG1ADsetting], parameterNumber: 3, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG1
+        secure(zwave.configurationV1.configurationSet(configurationValue: [SIG2ADsetting], parameterNumber: 9, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG2
         secure(zwave.configurationV1.configurationSet(configurationValue: [delay], parameterNumber: 1, size: 1)), // configurationValue for parameterNumber means how many 100ms do you want the relay
         																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
-        secure(zwave.configurationV1.configurationSet(configurationValue: [delay2], parameterNumber: 2, size: 1))
+        secure(zwave.configurationV1.configurationSet(configurationValue: [delay2], parameterNumber: 2, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0x90], parameterNumber: 4, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0x80], parameterNumber: 5, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFF], parameterNumber: 6, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFE], parameterNumber: 7, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0x90], parameterNumber: 10, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0x80], parameterNumber: 11, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFF], parameterNumber: 12, size: 1)),
+        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFE], parameterNumber: 13, size: 1))
+        
     ], 200)
 }
 
@@ -254,15 +292,15 @@ def refresh() {
        ],200)
 }
 
-private secure(physicalgraph.zwave.Command cmd) {
-	return zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
-}
-
-private secureSequence(commands, delay=200) {
+private secureSequence(commands, delay=200) { // decided not to use this
 	return delayBetween(commands.collect{ secure(it) }, delay)
 }
 
-private encap(cmd, endpoint) {
+private secure(physicalgraph.zwave.Command cmd) { //take multiChannel message and securely encrypts the message so the device can read it
+	return zwave.securityV1.securityMessageEncapsulation().encapsulate(cmd).format()
+}
+
+private encap(cmd, endpoint) { // takes desired command and encapsulates it by multiChannel and then sends it to secure() to be wrapped with another encapsulation for secure encryption
 	if (endpoint) {
 		return secure(zwave.multiChannelV3.multiChannelCmdEncap(bitAddress: false, sourceEndPoint:0, destinationEndPoint: endpoint).encapsulate(cmd))
 	} else {
