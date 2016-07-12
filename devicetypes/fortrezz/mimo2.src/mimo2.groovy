@@ -124,10 +124,7 @@ def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set i
 def zwaveEvent(int endPoint, physicalgraph.zwave.commands.sensorbinaryv1.SensorBinaryReport cmd) // event to get the state of the digital sensor SIG1 and SIG2
 {
 	log.debug "sent a sensorBinaryReport command"
-	if (endPoint == 1)
-    	{return [name: "contact", value: cmd.value ? "open" : "closed"]}
-    else if (endPoint == 2) 
-    	{return [name: "contact2", value: cmd.value ? "open" : "closed"]}
+	return response(refresh())
 }
 
 def zwaveEvent(int endPoint, physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cmd) // event for seeing the states of relay 1 and relay 2
@@ -160,24 +157,24 @@ def zwaveEvent (int endPoint, physicalgraph.zwave.commands.sensormultilevelv5.Se
 {
 	def map = [:]
     def voltageVal = CalculateVoltage(cmd.scaledSensorValue) // saving the scaled Sensor Value used to enter into a large formula to determine actual voltage value
-    if (endPoint == 1)
+    if (endPoint == 1) //endPoint 1 is for SIG1
     {
-    	if (state.AD1 == false)
+    	if (state.AD1 == false) // state.AD1 is  to determine which state the anaDig1 tile should be in (either analogue or digital mode)
         {
         	map.name = "anaDig1"
-            if (voltageVal < 1) {
+            if (voltageVal < 1) { //since the closed circuit of the inputs of SIG1 is 0 volts, have a range less than 1 volt seems adequate.
             	map.value = "closed"
             }
             else {map.value = "open"} 
         }
-        else
+        else //or state.AD1 is true for analogue mode
         {
         	map.name = "anaDig1"
         	map.value = voltageVal
         	map.unit = "v"
         }
     }
-    else if (endPoint == 2)
+    else if (endPoint == 2) // endpoint 2 is for SIG2
     {
         if (state.AD2 == false)
         {
