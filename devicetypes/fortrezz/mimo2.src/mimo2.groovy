@@ -40,10 +40,13 @@ metadata {
     
     preferences {
 
-        input ("RelaySwitchDelay", "decimal", title: "Relay 1 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
+        input ("RelaySwitchDelay", "decimal", title: "Relay 1 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch", description: "Numbers 0 to 3.1 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
     
-        input ("RelaySwitchDelay2", "decimal", title: "Relay 2 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch. Press 'Configure' tile to allow change", description: "Numbers 0 to 3 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
+        input ("RelaySwitchDelay2", "decimal", title: "Relay 2 Delay between relay switch on and off in seconds. Only Numbers 0 to 3 allowed. 0 value will remove delay and allow relay to function as a standard switch", description: "Numbers 0 to 3.1 allowed.", defaultValue: 0, required: false, displayDuringSetup: true)
         } // the range would be 0 to 3.1, but the range value would not accept 3.1, only whole numbers (i tried paranthesis and fractions too. :( )
+        input ("Sig1AD", "bool", title: "Switch on for SIG1 analogue, switch off for SIG1 digital", required: false, displayDuringSetup: true)
+        input ("Sig2AD", "bool", title: "Switch on for SIG2 analogue, switch off for SIG2 digital", required: false, displayDuringSetup: true)
+
        
 	tiles {
          standardTile("switch", "device.switch", width: 2, height: 2) {
@@ -52,16 +55,18 @@ metadata {
 
         }
          standardTile("switch2", "device.switch2", width: 2, height: 2, inactiveLabel: false) {
-            state "on2", label: "Relay 2 On", action: "off2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0", nextState: "off2"
-			state "off2", label: 'Relay 2 Off', action: "on2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff", nextState: "on2"
+            state "on2", label: "Relay 2 On", action: "off2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
+			state "off2", label: 'Relay 2 Off', action: "on2", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
         }
-        standardTile("contact", "device.contact", inactiveLabel: false) {
-			state "open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
-			state "closed", label: '${name}', icon: "st.contact.contact.closed", backgroundColor: "#79b821"
+        standardTile("anaDig1", "device.anaDig1", inactiveLabel: false) {
+			state "open", label: '1 ${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
+			state "closed", label: '1 ${name}', icon: "st.contact.contact.closed", backgroundColor: "#79b821"
+            state "val", label:'1 ${currentValue}v', unit:"", defaultState: true
 		}
-        standardTile("contact2", "device.contact2", inactiveLabel: false) {
-			state "open", label: '${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
-			state "closed", label: '${name}', icon: "st.contact.contact.closed", backgroundColor: "#79b821"
+        standardTile("anaDig2", "device.anaDig2", inactiveLabel: false) {
+			state "open", label: '2 ${name}', icon: "st.contact.contact.open", backgroundColor: "#ffa81e"
+			state "closed", label: '2 ${name}', icon: "st.contact.contact.closed", backgroundColor: "#79b821"
+            state "val", label:'2 ${currentValue}v', unit:"", defaultState: true
 		}
         standardTile("refresh", "device.switch", inactiveLabel: false, decoration: "flat") {
 			state "default", label:'', action:"refresh.refresh", icon:"st.secondary.refresh"
@@ -73,14 +78,8 @@ metadata {
 		standardTile("configure", "device.configure", inactiveLabel: false, decoration: "flat") {
 			state "configure", label:'', action:"configuration.configure", icon:"st.secondary.configure"
 		}
-        valueTile("voltage", "device.voltage") {
-            state "val", label:'${currentValue}v', unit:"", defaultState: true
-    	}
-        valueTile("voltage2", "device.voltage2") {
-            state "val", label:'${currentValue}v', unit:"", defaultState: true
-    	}
 		main (["switch"])
-		details(["switch", "contact", "voltage", "switch2", "contact2", "voltage2", "powered", "refresh","configure"])
+		details(["switch", "anaDig1", "switch2", "anaDig2", "powered", "refresh","configure"])
 	}
 }
 
@@ -103,8 +102,17 @@ def parse(String description) {
 }
 
 def updated() { // neat built-in smartThings function which automatically runs whenever any setting inputs are changed in the preferences menu of the device handler
-    log.debug "Settings Updated..."
-    return response(configure()) // the response() function is used for sending commands in reponse to an event, without it, no zWave commands will work for contained function
+    
+    if (state.count == 1) // this bit with state keeps the function from running twice ( which it always seems to want to do) (( oh, and state.count is a variable which is nonVolatile and doesn't change per every parse request.
+    {
+        state.count = 0
+        log.debug "Settings Updated..."
+        return response(delayBetween([
+            configure(), // the response() function is used for sending commands in reponse to an event, without it, no zWave commands will work for contained function
+            refresh()
+            ], 200))
+    }
+    else {state.count = 1}
 }
 
 def zwaveEvent(physicalgraph.zwave.commands.basicv1.BasicSet cmd) // basic set is essentially our digital sensor for SIG1 and SIG2 - it doesn't use an endpoint so we are having it send a multilevelGet() for SIG1 and SIG2 to see which one triggered.
@@ -154,24 +162,39 @@ def zwaveEvent (int endPoint, physicalgraph.zwave.commands.sensormultilevelv5.Se
     def voltageVal = CalculateVoltage(cmd.scaledSensorValue) // saving the scaled Sensor Value used to enter into a large formula to determine actual voltage value
     if (endPoint == 1)
     {
-        map.name = "voltage"
-        map.value = voltageVal
-        map.unit = "v"
-        if (voltageVal < 1) {
-        sendEvent(name: "contact", value: "closed")
-        log.debug "$voltageVal"
+    	if (state.AD1 == false)
+        {
+        	map.name = "anaDig1"
+            if (voltageVal < 1) {
+            	map.value = "closed"
+            }
+            else {map.value = "open"} 
         }
-        else {sendEvent(name: "contact", value: "open")}
+        else
+        {
+        	map.name = "anaDig1"
+        	map.value = voltageVal
+        	map.unit = "v"
+        }
     }
     else if (endPoint == 2)
     {
-        map.name = "voltage2"
-        map.value = voltageVal
-        map.unit = "v"
-        if (voltageVal < 1) {sendEvent(name: "contact2", value: "closed")}
-        else {sendEvent(name: "contact2", value: "open")}
+        if (state.AD2 == false)
+        {
+        	map.name = "anaDig2"
+            if (voltageVal < 1) {
+            	map.value = "closed"
+            }
+            else {map.value = "open"} 
+        }
+        else
+        {
+        	map.name = "anaDig2"
+        	map.value = voltageVal
+        	map.unit = "v"
+        }
     }
-	log.debug "sent a SensorMultilevelReport $map.name"
+	log.debug "sent a SensorMultilevelReport $map.name $map.value"
     return map
 }
 
@@ -217,6 +240,21 @@ def CalculateVoltage(ADCvalue) // used to calculate the voltage based on the col
 
 def configure() {
 	log.debug "Configuring...." 
+    def sig1
+    def sig2
+    if (Sig1AD == true)
+    {	sig1 = 0x01
+        state.AD1 = true}
+    else if (Sig1AD == false) 
+    {	sig1 = 0x40
+    	state.AD1 = false}
+    if (Sig2AD == true)
+    {	sig2 = 0x01
+    	state.AD2 = true}
+    else if (Sig2AD == false) 
+    {	sig2 = 0x40
+    	state.AD2 = false}
+    
 	def delay = (RelaySwitchDelay*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10  
     def delay2 = (RelaySwitchDelay2*10).toInteger() // the input which we get from the user is a string and is in seconds while the MIMO2 configuration requires it in 100ms so - change to integer and multiply by 10
 	if (delay > 31) 
@@ -250,31 +288,12 @@ def configure() {
         encap(zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]), 2),
         encap(zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 3),
         encap(zwave.multiChannelAssociationV2.multiChannelAssociationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 4),
-        /*encap(zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 0), // sending the 5 associationSet messages forces the MIMO2 to be in default configuration
-    	encap(zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 1),
-    	encap(zwave.multiChannelAssociationV2.multiChannelAssociationRemove(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 2),*/
 
-    	
-
-		/*encap(zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]), 0), // sending the 5 associationSet messages forces the MIMO2 to be in default configuration
-        encap(zwave.associationV2.associationSet(groupingIdentifier:3, nodeId:[zwaveHubNodeId]), 0), // sending the 5 associationSet messages forces the MIMO2 to be in default configuration
-    	encap(zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]), 1),
-    	encap(zwave.associationV2.associationSet(groupingIdentifier:2, nodeId:[zwaveHubNodeId]), 2),
-        encap(zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 3),
-        encap(zwave.associationV2.associationSet(groupingIdentifier:1, nodeId:[zwaveHubNodeId]), 4),*/
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x40], parameterNumber: 3, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG1
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x40], parameterNumber: 9, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG2
+        secure(zwave.configurationV1.configurationSet(configurationValue: [sig1], parameterNumber: 3, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG1
+        secure(zwave.configurationV1.configurationSet(configurationValue: [sig2], parameterNumber: 9, size: 1)), // sends a multiLevelSensor report every 30 seconds for SIG2
         secure(zwave.configurationV1.configurationSet(configurationValue: [delay], parameterNumber: 1, size: 1)), // configurationValue for parameterNumber means how many 100ms do you want the relay
         																										// to wait before it cycles again / size should just be 1 (for 1 byte.)
         secure(zwave.configurationV1.configurationSet(configurationValue: [delay2], parameterNumber: 2, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x90], parameterNumber: 4, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x80], parameterNumber: 5, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFF], parameterNumber: 6, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFE], parameterNumber: 7, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x90], parameterNumber: 10, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0x80], parameterNumber: 11, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFF], parameterNumber: 12, size: 1)),
-        secure(zwave.configurationV1.configurationSet(configurationValue: [0xFE], parameterNumber: 13, size: 1))
         
     ], 200)
 }
@@ -306,11 +325,7 @@ def refresh() {
          encap(zwave.sensorMultilevelV5.sensorMultilevelGet(), 2),// requests a report of the anologue input voltage for SIG2
          encap(zwave.switchBinaryV1.switchBinaryGet(), 3), //requests a report of the relay to make sure that it changed for Relay 1
          encap(zwave.switchBinaryV1.switchBinaryGet(), 4), //requests a report of the relay to make sure that it changed for Relay 2
-         encap(zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1), 0), 
-         encap(zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1), 1), 
-    	 encap(zwave.multiChannelAssociationV2.multiChannelAssociationGet(groupingIdentifier: 1), 2)
-
-       ],400)
+       ],200)
 }
 
 private secureSequence(commands, delay=200) { // decided not to use this
