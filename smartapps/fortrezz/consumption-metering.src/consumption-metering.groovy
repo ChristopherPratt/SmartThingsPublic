@@ -49,32 +49,29 @@ def prefsPage() {
                 case "Daily Goal":
                 	section("Water Measurement Preference"){
         				input(name: "measurementType", type: "enum", title: "Press to change water measurement options", submitOnChange: true, options: waterTypes())}
-                        //state.mType = measurementType
+                
                     section("Threshold settings") {
-                        input(name: "dgg", type: "decimal", title: "Daily ${measurementType} Goal", required: true, defaultValue: 0.1)
+                        input(name: "waterGoal", type: "decimal", title: "Daily ${measurementType} Goal", required: true, defaultValue: 0.5)
                     }
-                    //schedule("0 0 0 1/1 * ? *", setDailyGoal)                  
-					schedule("0 0/1 * 1/1 * ? *", setDailyGoal)
+                                      
                     break
 
                 case "Weekly Goal":
                 	section("Water Measurement Preference"){
         				input(name: "measurementType", type: "enum", title: "Press to change water measurement options", submitOnChange: true, options: waterTypes())}
                     section("Threshold settings") {
-                        input(name: "wgg", type: "decimal", title: "Weekly ${measurementType} Goal", required: true, defaultValue: 0.1)
+                        input(name: "waterGoal", type: "decimal", title: "Weekly ${measurementType} Goal", required: true, defaultValue: 0.1)
                     }
-                    //schedule("0 0 0 ? * MON *", setWeeklyGoal)
-                    schedule("0 0/1 * 1/1 * ? *", setWeeklyGoal)
+                    
                     break
 
                 case "Monthly Goal":
                 	section("Water Measurement Preference"){
         				input(name: "measurementType", type: "enum", title: "Press to change water measurement options", submitOnChange: true, options: waterTypes())}
                     section("Threshold settings") {
-                        input(name: "mgg", type: "decimal", title: "Monthly ${measurementType} Goal", required: true, defaultValue: 0.1)
+                        input(name: "waterGoal", type: "decimal", title: "Monthly ${measurementType} Goal", required: true, defaultValue: 0.1)
                     }
-                    //schedule("0 0 0 1 1/1 ? *", setMonthlyGoal)
-                    schedule("0 0/1 * 1/1 * ? *", setMonthlyGoal)
+                    
                     break
 
                 default:
@@ -103,7 +100,7 @@ def waterTypes()
     watertype << "Cubic Meters"
     return watertype
 }
-
+/*
 def setDailyGoal(measurementType3)
 {
     return parent.setDailyGoal(measurementType3)
@@ -116,7 +113,7 @@ def setMonthlyGoal()
 {
     return parent.setMonthlyGoal(measurementType)
 } 
-
+*/
 
 def actionTypes() {
 	def types = []
@@ -139,7 +136,7 @@ def deviceCommands(dev)
 def installed() {
 	state.Daily = 0
 	log.debug "Installed with settings: ${settings}"
-	app.updateLabel("${type} - ${goal} ${measurementType}")
+	app.updateLabel("${type} - ${waterGoal} ${measurementType}")
     //schedule("	0 0/1 * 1/1 * ? *", setDailyGoal())
 	initialize()
 }
@@ -149,14 +146,8 @@ def installed() {
 
     
 def updated() {
-	def goal = 0;
-	if (type == "Daily Goal"){
-    goal = dgg
-    }
-    if (type == "Weekly Goal"){goal = wgg}
-    if (type == "Monthly Goal"){goal = mgg}
 	log.debug "Updated with settings: ${settings}"
-	app.updateLabel("${type} - ${goal} ${measurementType}")
+	app.updateLabel("${type} - ${waterGoal} ${measurementType}")
     
     log.debug "${now()}"
 	
