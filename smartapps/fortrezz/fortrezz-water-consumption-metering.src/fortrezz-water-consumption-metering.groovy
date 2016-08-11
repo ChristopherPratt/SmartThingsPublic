@@ -96,7 +96,8 @@ def page2() {
                     }
                     
                 //scheduleGoal(myItem.measurementType, myItem.id, myItem.waterGoal, myItem.type)
-                //r.start = state.cumulative
+                r.start = state.cumulative
+                r.currentCumulative = 0
                 }
             match = false
         }
@@ -113,7 +114,9 @@ def dailyGoalSearch(){
      for (it in myRules){
         def r = it.rules
         if (r.type == "Daily Goal") {
-        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type, r.start)
+        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type, r.start, r.currentCumulation)
+            r.start = state.cumulation
+            r.currentCumulation = 0
         }
     }
 }
@@ -122,7 +125,9 @@ def weeklyGoalSearch(){
      myRules.each { it ->
         def r = it.rules
         if (r.type == "Weekly Goal") {
-        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type, r.start)
+        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type, r.start, r.currentCumulation)
+            r.start = state.cumulation
+            r.currentCumulation = 0
         }
     }
 }
@@ -131,27 +136,27 @@ def monthlyGoalSearch(){
      myRules.each { it ->
         def r = it.rules
         if (r.type == "Monthly Goal") {
-        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type, r.start)
+        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type, r.start, r.currentCumulation)
+            r.start = state.cumulation
+            r.currentCumulation = 0
         }
     }
 }
     
 
-def scheduleGoal(measureType, goalID, wGoal, goalType, cStart){
+def scheduleGoal(measureType, goalID, wGoal, goalType, cStart, currentCumulation){
 
-    //setGoal(myItem.measurementType, myItem.id, myItem.waterGoal)
+
     if (costPerUnit != 0) {
-        //notify("Your ${goalType} period has ended. You have you have used ${state.deltaDaily} ${measureType} of your goal of ${wGoal} ${measureType}. Costing \$")
+        notify("Your ${goalType} period has ended. You have you have used ${state.deltaDaily} ${measureType} of your goal of ${wGoal} ${measureType}. Costing \$")
         log.debug "Your ${goalType} period has ended. You have you have used ${cStart} ${measureType} of your goal of ${wGoal} ${measureType}. Costing \$ ${state.cumulative}"
         
     }
-    /*if (costPerUnit == 0 || unitType == "") 
+    if (costPerUnit == 0 || unitType == "") 
     {
     	notify("Your ${goalType} period has ended. You have you have used ${state.deltaDaily} ${measureType} of your goal of ${wGoal} ${measureType}.")
         log.debug "Your ${goalType} period has ended. You have you have used ${state.deltaDaily} ${measureType} of your goal of ${wGoal} ${measureType}."
-     }*/
-        
-    //state["accHistory${goalID}"] = null
+     }
 }
 	
 	
@@ -213,122 +218,42 @@ def setMonthlyGoal(measurementType2 ,childAppID2)
 def cumulativeHandler(evt) {
     
 	def gpm = meter.latestValue("gpm")
-    def cumulative = evt.value
+    def cumulative = new BigDecimal(evt.value)
     state.cumulative = cumulative
-    log.debug "Cumulative Handler: [gpm: ${gpm}, cumulative: ${cumulative}]"
+    log.debug "Cumulative Handler: [gpm: ${gpm}, cumulative: ${state.cumulative}]"
     def rules = state.rules
     rules.each { it ->
         def r = it.rules
         def childAppID = it.id
     	//log.debug("Rule: ${r}")
-    	switch (r.type) {
-            case "Daily Goal":
-            	def newCumulative = waterConversionPreference(cumulative, r.measurementType)
-                def deltaDaily = 0
-                def DailyGallonGoal = r.dgg
-                state.DailyGallonGoal = DailyGallonGoal
-                if(state["accHistory${childAppID}"] != null)
-                {
-                    deltaDaily = newCumulative - state["accHistory${childAppID}"]
-                    state.deltaDaily = deltaDaily
-                }
-                else
-                {
-                    state["accHistory${childAppID}"] = cumulative
-                }   
-                log.debug("Threshold:${DailyGallonGoal}, Value:${deltaDaily}")
 
-                if ( deltaDaily > (0.5 * DailyGallonGoal))
-                {
-                    notify("you have reached 50% of your Daily gallon use limit")
-                }
-                if ( deltaDaily > (0.75 * DailyGallonGoal))
-                {
-                    notify("you have reached 75% of your Daily gallon use limit")
-                }
-                if ( deltaDaily > (0.9 * DailyGallonGoal))
-                {
-                    notify("you have reached 90% of your Daily gallon use limit")
-                }
-                if (deltaDaily > DailyGallonGoal)
-                {
-                    notify("you have reached 100% of your Daily gallon use limit")
-                    //send command here like shut off the water
-                }
+        def newCumulative = waterConversionPreference(cumulative, r.measurementType)
+        def DailyGallonGoal = r.waterGoal
+        state.DailyGallonGoal = DailyGallonGoal
 
-                break
-                    
-            case "Weekly Goal":
-                def newCumulative = waterConversionPreference(cumulative1, r.measurement)
-                def deltaWeekly = 0
-                def weeklyGallonGoal = r.wgg
-                state.weeklyGallonGoal = weeklyGallonGoal
-                if(state["accHistory${childAppID}"] != null)
-                {
-                    deltaWeekly = newCumulative - state["accHistory${childAppID}"]
-                    state.deltaWeekly = deltaWeekly
-                }
-                else
-                {
-                    state["accHistory${childAppID}"] = cumulative
-                }   
-                log.debug("Threshold:${weeklyGallonGoal}, Value:${deltaWeekly}")
+        r.currentCumulation = newCumulative - r.start
+        state.currentCumulation = r.currentCumulation
 
-                if ( deltaWeekly > (0.5 * weeklyGallonGoal))
-                {
-                    notify("you have reached 50% of your Weekly gallon use limit")
-                }
-                if ( deltaWeekly > (0.75 * weeklyGallonGoal))
-                {
-                    notify("you have reached 75% of your Weekly gallon use limit")
-                }
-                if ( deltaWeekly > (0.9 * weeklyGallonGoal))
-                {
-                    notify("you have reached 90% of your Weekly gallon use limit")
-                }
-                if (deltaWeekly > weeklyGallonGoal)
-                {
-                    notify("you have reached 100% of your Weekly gallon use limit")
-                    //send command here like shut off the water
-                }
-                break
+        log.debug("Threshold:${DailyGallonGoal}, Value:${r.currentCumulation}")
 
-            case "Monthly Goal":
-                def newCumulative = waterConversionPreference(cumulative1, r.measurement)
-                def deltaMonthly = 0
-                def monthlyGallonGoal = r.mgg
-                state.monthlyGallonGoal = monthlyGallonGoal
-                if(state["accHistory${childAppID}"] != null)
-                {
-                    deltaMonthly = newCumulative - state["accHistory${childAppID}"]
-                    state.deltaMonthly = deltaMonthly
-                }
-                else
-                {
-                    state["accHistory${childAppID}"] = cumulative
-                }   
-                log.debug("Threshold:${monthlyGallonGoal}, Value:${deltaMonthly}")
-
-                if ( deltaMonthly > (0.5 * monthlyGallonGoal))
-                {
-                    notify("you have reached 50% of your Monthly gallon use limit")
-                }
-                if ( deltaMonthly > (0.75 * monthlyGallonGoal))
-                {
-                    notify("you have reached 75% of your Monthly gallon use limit")
-                }
-                if ( deltaMonthly > (0.9 * monthlyGallonGoal))
-                {
-                    notify("you have reached 90% of your Monthly gallon use limit")
-                }
-                if (deltaMonthly > monthlyGallonGoal)
-                {
-                    notify("you have reached 100% of your Monthly gallon use limit")
-                    //send command here like shut off the water
-                }
-                break
-          }      
-     }
+        if ( r.currentCumulation > (0.5 * DailyGallonGoal))
+        {
+            notify("you have reached 50% of your ${r.type} ${r.measurementType} use limit")
+        }
+        if ( r.currentCumulation > (0.75 * DailyGallonGoal))
+        {
+            notify("you have reached 75% of your ${r.type} ${r.measurementType} use limit")
+        }
+        if ( r.currentCumulation > (0.9 * DailyGallonGoal))
+        {
+            notify("you have reached 90% of your ${r.type} ${r.measurementType} use limit")
+        }
+        if (r.currentCumulation > DailyGallonGoal)
+        {
+            notify("you have reached 100% of your ${r.type} ${r.measurementType} use limit")
+            //send command here like shut off the water
+        }         
+    }
 }
 
 def waterConversionPreference(cumul, measurementType1)
