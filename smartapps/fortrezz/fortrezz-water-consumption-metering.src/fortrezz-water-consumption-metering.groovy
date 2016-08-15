@@ -178,15 +178,16 @@ def scheduleGoal(measureType, goalID, wGoal, goalType, cStart, currentCumulation
     //def cost = 0.875f
     log.debug "${waterConversionPreference(state.costRatio,measureType)}"
     log.debug "${currentCumulation1}"
+    def percentage = currentCumulation1 / wGoal
     if (costPerUnit != 0) {
-        notify("Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType}. Costing \$${cost.round(2)}")// notifies user of the type of goal that finished, the amount of water they used versus the goal of water they used, and the cost of the water used
-        log.debug "Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType}. Costing \$${cost.round(2)}"
+        notify("Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType} (%${percentage}). Costing \$${cost.round(2)}")// notifies user of the type of goal that finished, the amount of water they used versus the goal of water they used, and the cost of the water used
+        log.debug "Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType} (%${percentage}). Costing \$${cost.round(2)}"
         
     }
     if (costPerUnit == 0 || unitType == "") // just in case the user didn't add any billing info, i created a second set of notification code to not include any billing info.
     {
-    	notify("Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType}.")
-        log.debug "Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType}."
+    	notify("Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType} (%${percentage}).")
+        log.debug "Your ${goalType} period has ended. You have you have used ${currentCumulation1} ${measureType} of your goal of ${wGoal} ${measureType} (%${percentage})."
      }
 }
 	
