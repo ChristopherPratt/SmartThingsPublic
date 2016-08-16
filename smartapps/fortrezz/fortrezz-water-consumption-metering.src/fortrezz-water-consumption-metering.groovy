@@ -96,7 +96,7 @@ def page2() {
                     }
                     
                 //scheduleGoal(myItem.measurementType, myItem.id, myItem.waterGoal, myItem.type)
-                r.start = state.cumulative // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
+               state["Start${childAppID}"] = state.cumulative // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
                 //r.currentCumulation = 0 // we create another object attached to our new goal called 'currentCumulation' which should hold the value for how much water has been used since the goal period has started
                 }
             match = false
@@ -171,7 +171,7 @@ def monthlyGoalSearch(){
 }
     
 
-def scheduleGoal(measureType, goalID, wGoal, goalType, cStart, currentCumulation1){ // this is where the magic happens. after a goal peiod has finished this method is invoked and the user gets a notification of the results of the water usage over their period.
+def scheduleGoal(measureType, goalID, wGoal, goalType, cStart, currentCumulation1){ // this is where the magic happens. after a goal period has finished this method is invoked and the user gets a notification of the results of the water usage over their period.
 	def f = 1.0f
 	def cost = waterConversionPreference(state.costRatio,measureType) * currentCumulation1 * f // determining the cost of the water that they have used over the period ( i had to create a variable 'f' and make it a float and multiply it to make the result a float. this is because the method .round() requires it to be a float for some reasons and it was easier than typecasting the result to a float.
     //def cost1 = 0.875
