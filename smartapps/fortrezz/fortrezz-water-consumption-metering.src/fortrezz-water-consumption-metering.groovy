@@ -110,9 +110,10 @@ def page2() {
         //log.debug("Child Rules: ${state.rules} w/ length ${state.rules.toString().length()}")
         log.debug "Parent Settings: ${settings}"
              
-        if (state.costRatio != null && unitType != null){//we ask the user in the main page for billing info which includes the price of the water and what water measurement unit is used. we combine convert the unit to gallons (since that is what the FMI uses to tick water usage) and then create a ratio that can be converted to any water measurement type
-        	costPerUnit/convertToGallons(unitType)}
-        log.debug "${state.costRatio}"
+        if (costPerUnit != null && unitType != null){//we ask the user in the main page for billing info which includes the price of the water and what water measurement unit is used. we combine convert the unit to gallons (since that is what the FMI uses to tick water usage) and then create a ratio that can be converted to any water measurement type
+        	state.costRatio = costPerUnit/convertToGallons(unitType)
+        log.debug "${state.costRatio}"}
+        state.fixedFee = fixedFee
     }
 }
 
@@ -178,16 +179,16 @@ def monthlyGoalSearch(){
     
 
 def scheduleGoal(measureType, goalID, wGoal, goalType){ // this is where the magic happens. after a goal period has finished this method is invoked and the user gets a notification of the results of the water usage over their period.
-	def f = 1.0f
+	def cost = 0
+    def f = 1.0f
     def curCumulation = state["currentCumulation${goalID}"] // transferring value to local variable becuase reading too much from a state variable causes issues
-	if (state.costRatio != null){
-    	def cost = costConversionPreference(state.costRatio,measureType) * curCumulation * f + fixedFee// determining the cost of the water that they have used over the period ( i had to create a variable 'f' and make it a float and multiply it to make the result a float. this is because the method .round() requires it to be a float for some reasons and it was easier than typecasting the result to a float.
+	if (state.costRatio){
+    	cost = costConversionPreference(state.costRatio,measureType) * curCumulation * f + state.fixedFee// determining the cost of the water that they have used over the period ( i had to create a variable 'f' and make it a float and multiply it to make the result a float. this is because the method .round() requires it to be a float for some reasons and it was easier than typecasting the result to a float.
     }
-    
     def percentage = (curCumulation / wGoal) * 100 * f
     if (costPerUnit != 0) {
-        notify("Your ${goalType} period has ended. You have you have used ${(curCumulation * f).round(2)} ${measureType} of your goal of ${wGoal} ${measureType} (${percentage.round(1)}%). Costing \$${cost.round(2)}")// notifies user of the type of goal that finished, the amount of water they used versus the goal of water they used, and the cost of the water used
-        log.debug "Your ${goalType} period has ended. You have you have used ${(curCumulation * f).round(2)} ${measureType} of your goal of ${wGoal} ${measureType} (${percentage.round(1)}%). Costing \$${cost.round(2)}"
+        notify("Your ${goalType} period has ended. You have you have used ${(curCumulation * f).round(2)} ${measureType} of your goal of ${wGoal} ${measureType} (${(percentage * f).round(1)}%). Costing \$${cost.round(2)}")// notifies user of the type of goal that finished, the amount of water they used versus the goal of water they used, and the cost of the water used
+        log.debug "Your ${goalType} period has ended. You have you have used ${(curCumulation * f).round(2)} ${measureType} of your goal of ${wGoal} ${measureType} (${(percentage * f).round(1)}%). Costing \$${cost.round(2)}"
         
     }
     if (costPerUnit == 0) // just in case the user didn't add any billing info, i created a second set of notification code to not include any billing info.
