@@ -200,5 +200,7 @@ def initialize() {
     
     // TODO: subscribe to attributes, devices, locations, etc.
 }
-
+def uninstalled() {
+    // external cleanup. No need to unsubscribe or remove scheduled jobs
+}
 // TODO: implement event handlers
