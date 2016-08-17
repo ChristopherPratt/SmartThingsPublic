@@ -70,40 +70,64 @@ def page2() {
         }
         
         def match = false
+        def changeOfSettings = false
         for (myItem in childRules) {
+        	def q = myItem.rules
         	for (item2 in state.rules) {
+                def r = item2.rules
             	if (myItem.id == item2.id) { //I am comparing the previous array to current array and checking to see if any new goals have been made.  
                 	match = true
-                }
+                    if (q.type == r.type){
+                    	changeOfSettings = true}
+                }                
             }
+            if (changeOfSettings == false){
+            	unschedule()
+                log.debug "Found a changed goal type, We're going to unschedule all and reschedule"
+            	for (myItem2 in childRules) {
+                     state["reSchedule${myItem.id}"] = true
+                	}
+                }
             if (match == false) { // if a new goal has been made, i need to do some first time things like set up a recurring schedule depending on goal duration
-            	def r = myItem.rules
-            	log.debug "Created a new ${r.type} with an ID of ${myItem.id}"
+            	state["reSchedule${myItem.id}"] = true
+                state["NewApp${myItem.id}"] = true
+                log.debug "Created a new ${q.type} with an ID of ${myItem.id}"}
+    
+            match = false
+        }
+        
+        for (myItem in childRules) {
+            if (state["reSchedule${myItem.id}"]){
+
+                def r = myItem.rules
+                
                 switch (r.type){
-                	case "Daily Goal":
+                    case "Daily Goal":
                     //schedule("0 0 0 1/1 * ? *", setDailyGoal)
-                	schedule("0 0/1 * 1/1 * ? *", dailyGoalSearch) // here we are using schedule() to set up our goal durations. the quoted area is known as a "cron" and should be google searched (i used a cron calculator to get these values) cron is super specific and useful. (at the determined time a method is invoked which CANNOT HAVE ANY PARAMETERS!!! this is super limiting and annoying.
+                    schedule("0 0/1 * 1/1 * ? *", dailyGoalSearch) // here we are using schedule() to set up our goal durations. the quoted area is known as a "cron" and should be google searched (i used a cron calculator to get these values) cron is super specific and useful. (at the determined time a method is invoked which CANNOT HAVE ANY PARAMETERS!!! this is super limiting and annoying.
                     break
                     case "Weekly Goal":
-                    //schedule("0 0 0 ? * MON *", setWeeklyGoal)
-                    schedule("0 0/1 * 1/1 * ? *", weeklyGoalSearch)
+                    //schedule("0 0 0 ? * SUN *", setWeeklyGoal)
+                    schedule("0 0/2 * 1/1 * ? *", weeklyGoalSearch)
                     break
                     case "Monthly Goal":
                     //schedule("0 0 0 1 1/1 ? *", setMonthlyGoal)
-                    schedule("0 0/1 * 1/1 * ? *", monthlyGoalSearch)
+                    schedule("0 0/3 * 1/1 * ? *", monthlyGoalSearch)
                     break
                     //default: break
-                    }
-                    
-                //scheduleGoal(myItem.measurementType, myItem.id, myItem.waterGoal, myItem.type)
-               //state["Start${myItem.id}"] = state.cumulative // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
-               state["currentCumulation${myItem.id}"] = 0 // we create another object attached to our new goal called 'currentCumulation' which should hold the value for how much water has been used since the goal period has started
-               state["oneHundred${myItem.id}"] = false
-               state["ninety${myItem.id}"] = false
-               state["seventyFive${myItem.id}"] = false
-               state["fifty${myItem.id}"] = false
                 }
-            match = false
+
+                //scheduleGoal(myItem.measurementType, myItem.id, myItem.waterGoal, myItem.type)
+                //state["Start${myItem.id}"] = state.cumulative // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
+                if (state["NewApp${myItem.id}"] == true){
+                	state["NewApp${myItem.id}"] = false
+                    state["currentCumulation${myItem.id}"] = 0 // we create another object attached to our new goal called 'currentCumulation' which should hold the value for how much water has been used since the goal period has started
+                    state["oneHundred${myItem.id}"] = false
+                    state["ninety${myItem.id}"] = false
+                    state["seventyFive${myItem.id}"] = false
+                    state["fifty${myItem.id}"] = false
+                    state["reSchedule${myItem.id}"] = false}
+            }
         }
 
         state.rules = childRules // storing the array we just made to state makes it persistent across the instances this smart app is used and global across the app ( this value cannot be implicitely shared to any child app unfortunately without making it a local variable FYI
@@ -112,8 +136,8 @@ def page2() {
              
         if (costPerUnit != null && unitType != null){//we ask the user in the main page for billing info which includes the price of the water and what water measurement unit is used. we combine convert the unit to gallons (since that is what the FMI uses to tick water usage) and then create a ratio that can be converted to any water measurement type
         	state.costRatio = costPerUnit/convertToGallons(unitType)
-        log.debug "${state.costRatio}"}
-        state.fixedFee = fixedFee
+        	state.fixedFee = fixedFee
+        }
     }
 }
 
@@ -282,26 +306,26 @@ def cumulativeHandler(evt) { // every time a tick on the FMI happens this method
 
         if ( currentCumulation >= (0.5 * DailyGallonGoal) && currentCumulation < (0.75 * DailyGallonGoal) && state["fifty${childAppID}"] == false) // tell the user if they break certain use thresholds
         {
-            notify("you have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "you have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            notify("You have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
+            log.debug "You have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["fifty${childAppID}"] = true
         }
         if ( currentCumulation >= (0.75 * DailyGallonGoal) && currentCumulation < (0.9 * DailyGallonGoal) && state["seventyFive${childAppID}"] == false)
         {
-            notify("you have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "you have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            notify("You have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
+            log.debug "You have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["seventyFive${childAppID}"] = true
         }
         if ( currentCumulation >= (0.9 * DailyGallonGoal) && currentCumulation < (DailyGallonGoal) && state["ninety${childAppID}"] == false)
         {
-            notify("you have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "you have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            notify("You have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
+            log.debug "You have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["ninety${childAppID}"] = true
         }
         if (currentCumulation >= DailyGallonGoal && state["oneHundred${childAppID}"] == false)
         {
-            notify("you have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "you have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            notify("You have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
+            log.debug "You have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["oneHundred${childAppID}"] = true
             //send command here like shut off the water
             
