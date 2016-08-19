@@ -104,21 +104,19 @@ def page2() {
                 switch (r.type){ // here we are using schedule() to set up our goal durations. the quoted area is known as a "cron" and should be google searched (i used a cron calculator to get these values) cron is super specific and useful. (at the determined time a method is invoked which CANNOT HAVE ANY PARAMETERS!!! this is super limiting and annoying.
                     case "Daily Goal":
                     //schedule("0 0 0 1/1 * ? *", setDailyGoal)
-                    schedule("0 0/10 * 1/1 * ? *", dailyGoalSearch) 
+                    schedule("0 0/1 * 1/1 * ? *", GoalSearch) 
                     break
                     case "Weekly Goal":
                     //schedule("0 0 0 ? * SUN *", setWeeklyGoal)
-                    schedule("0 0/10 * 1/1 * ? *", weeklyGoalSearch)
+                    schedule("0 0/1 * 1/1 * ? *", GoalSearch)
                     break
                     case "Monthly Goal":
                     //schedule("0 0 0 1 1/1 ? *", setMonthlyGoal)
-                    schedule("0 0/10 * 1/1 * ? *", monthlyGoalSearch)
+                    schedule("0 0/1 * 1/1 * ? *", GoalSearch)
                     break
                     //default: break
                 }
 
-                //scheduleGoal(myItem.measurementType, myItem.id, myItem.waterGoal, myItem.type)
-                //state["Start${myItem.id}"] = state.cumulative // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
                 if (state["NewApp${myItem.id}"] == true){
                 	state["NewApp${myItem.id}"] = false
                     state["oneHundred${myItem.id}"] = false
@@ -132,7 +130,6 @@ def page2() {
         }
 
         state.rules = childRules // storing the array we just made to state makes it persistent across the instances this smart app is used and global across the app ( this value cannot be implicitely shared to any child app unfortunately without making it a local variable FYI
-        //log.debug("Child Rules: ${state.rules} w/ length ${state.rules.toString().length()}")
         log.debug "Parent Settings: ${settings}"
              
         if (costPerUnit != null && unitType != null){//we ask the user in the main page for billing info which includes the price of the water and what water measurement unit is used. we combine convert the unit to gallons (since that is what the FMI uses to tick water usage) and then create a ratio that can be converted to any water measurement type
@@ -164,41 +161,12 @@ def convertToGallons(myUnit) // does what title says - takes whatever unit in st
        }
 }
 
-def dailyGoalSearch(){ // because of our limitations of schedule() we had to create 3 separate methods for the existing goal period of day, month, and year. they are identical other than their time periods.
+def GoalSearch(){ // because of our limitations of schedule() we had to create 3 separate methods for the existing goal period of day, week, and month. they are identical other than their time periods.
 	def myRules = state.rules // also, these methods are called when our goal period ends. we filter out the goals that we want and then invoke a separate method called schedulGoal to inform the user that the goal ended and produce some results based on their water usage.
      //myRules.each { it ->
-     for (it in myRules){
-        def r = it.rules
-        if (r.type == "Daily Goal") {
-
-        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type)
-            
-        }
-    }
-}
-def weeklyGoalSearch(){
-	def myRules = state.rules
-     myRules.each { it ->
-        def r = it.rules
-        if (r.type == "Weekly Goal") {
-        	
-        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type)
-
-
-        }
-    }
-}
-def monthlyGoalSearch(){
-	def myRules = state.rules
-     myRules.each { it ->
-        def r = it.rules
-        if (r.type == "Monthly Goal") {
-        	
-        	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type)
-            
-            
-
-        }
+    for (it in myRules){
+        def r = it.rules        
+        scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type)           
     }
 }
     
@@ -261,13 +229,7 @@ def updated() { // whevenever the app is updated in any way by the user and you 
 		initialize()
     }
     else {state.count = 1}
-    
-    
 
-    
-    
-
-	
     //unschedule()
 }
 
@@ -277,29 +239,7 @@ def initialize() { // whenever you open the smart app - do something
     log.debug("Subscribing to events")
 }
 
-/*
-def setDailyGoal(measurementType2, childAppID2)
-{
-	if (costPerUnit != 0) {
-    notify("Your daily goal period has ended. You have you have used ${state.deltaDaily} ${state.dailyMeasurementType} of your goal of ${state.DailyGallonGoal} ${state.dailyMeasurementType}.")
-    log.debug "Your daily goal period has ended. You have you have used ${state.deltaDaily} ${state.dailyMeasurementType} of your goal of ${state.DailyGallonGoal} ${state.dailyMeasurementType}."
-    state["accHistory${childAppID2}"] = null
-}
 
-def setWeeklyGoal(measurementType2, childAppID2)
-{
-    notify("Your weekly goal period has ended. You have you have used ${state.deltaWeekly} ${state.weeklyMeasurementType} of your goal of ${state.weeklyGallonGoal} ${state.weeklyMeasurementType}.")
-    log.debug "Your weekly goal period has ended. You have you have used ${state.deltaWeekly} ${state.weeklyMeasurementType} of your goal of ${state.weeklyGallonGoal} ${state.weeklyMeasurementType}."
-    state["accHistory${childAppID2}"] = null
-}
-
-def setMonthlyGoal(measurementType2 ,childAppID2)
-{
-    notify("Your monthly goal period has ended. You have you have used ${state.deltaMonthly} ${state.monthlyMeasurementType} of your goal of ${state.monthlyGallonGoal} ${state.monthlyMeasurementType}.")
-    log.debug "Your monthly goal period has ended. You have you have used ${state.deltaMonthly} ${state.monthlyMeasurementType} of your goal of ${state.monthlyGallonGoal} ${state.monthlyMeasurementType}."
-    state["accHistory${childAppID2}"] = null
-}
-*/
 def cumulativeHandler(evt) { // every time a tick on the FMI happens this method is called. 'evt' contains the cumulative value of every tick that has happened on the FMI since it was last reset. each tick represents 1/10 of a gallon
     def f = 1.0f //the .round() method requires the number to be a float so multiplying the number by this variable is a cheap way to typecast.
 	def gpm = meter.latestValue("gpm") // storing the current gallons per minute value
@@ -313,8 +253,6 @@ def cumulativeHandler(evt) { // every time a tick on the FMI happens this method
 
         def newCumulative = waterConversionPreference(cumulative, r.measurementType) //each goal allows the user to choose a water measurement type. here we convert the value of 'cumulative' to whatever the user prefers for display and logic purposes
         def DailyGallonGoal = r.waterGoal // 'r.waterGoal' contains the number of units of water the user set as a goal. we then save that to 'DailyGallonGoal'
-        state.DailyGallonGoal = DailyGallonGoal // and then we make that value global and persistent for logic reasons
-        if (state["Start${childAppID}"] == null) {state["Start${childAppID}"] = cumulative}// just for the first run of the app... start should be null. so we have to change that for the logic to work.
         def currentCumulation = waterConversionPreference(cumulative, r.measurementType) - waterConversionPreference(state["Start${childAppID}"], r.measurementType) // earlier we created the value 'currentCumulation' and set it to 0, now we are converting both the 'cumulative' value and what 'cumulative' was when the goal perio was made and subtracting them to discover how much water has been used since the creation of the goal in the users prefered water measurement unit.
         log.debug("Goal Type: ${r.measurementType} Threshold:${DailyGallonGoal}, Value:${currentCumulation}")
 
