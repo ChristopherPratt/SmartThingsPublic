@@ -27,6 +27,7 @@ definition(
 
 preferences {
 	page(name: "page2", title: "Select device and actions", install: true, uninstall: true)
+    
 }
 
 def page2() {
@@ -40,7 +41,6 @@ def page2() {
                 app(name: "childRules", appName: "Consumption Metering", namespace: "FortrezZ", title: "Create New Water Consumption Goal", multiple: true)
             }
         }
-        
         section("Billing info") {
         	input(name: "unitType", type: "enum", title: "Water unit used in billing", description: null, defaultValue: "Gallons", required: true, submitOnChange: true, options: waterTypes())
             input(name: "costPerUnit", type: "decimal", title: "Cost of water unit in billing", description: null, defaultValue: 0, required: true, submitOnChange: true)
@@ -77,7 +77,7 @@ def page2() {
                 def r = item2.rules
             	if (myItem.id == item2.id) { //I am comparing the previous array to current array and checking to see if any new goals have been made.  
                 	match = true
-                    if (q.type == r.type){
+                    if (q.type == r.type){ // here i am checking to see if any changes have been made to the goal duration - as this would need a scheduling change
                     	changeOfSettings = true}
                 }                
             }
@@ -85,7 +85,7 @@ def page2() {
             	unschedule()
                 log.debug "Found a changed goal type, We're going to unschedule all and reschedule"
             	for (myItem2 in childRules) {
-                     state["reSchedule${myItem.id}"] = true
+                     state["reSchedule${myItem2.id}"] = true
                 	}
                 }
             if (match == false) { // if a new goal has been made, i need to do some first time things like set up a recurring schedule depending on goal duration
@@ -101,18 +101,18 @@ def page2() {
 
                 def r = myItem.rules
                 
-                switch (r.type){
+                switch (r.type){ // here we are using schedule() to set up our goal durations. the quoted area is known as a "cron" and should be google searched (i used a cron calculator to get these values) cron is super specific and useful. (at the determined time a method is invoked which CANNOT HAVE ANY PARAMETERS!!! this is super limiting and annoying.
                     case "Daily Goal":
                     //schedule("0 0 0 1/1 * ? *", setDailyGoal)
-                    schedule("0 0/1 * 1/1 * ? *", dailyGoalSearch) // here we are using schedule() to set up our goal durations. the quoted area is known as a "cron" and should be google searched (i used a cron calculator to get these values) cron is super specific and useful. (at the determined time a method is invoked which CANNOT HAVE ANY PARAMETERS!!! this is super limiting and annoying.
+                    schedule("0 0/10 * 1/1 * ? *", dailyGoalSearch) 
                     break
                     case "Weekly Goal":
                     //schedule("0 0 0 ? * SUN *", setWeeklyGoal)
-                    schedule("0 0/2 * 1/1 * ? *", weeklyGoalSearch)
+                    schedule("0 0/10 * 1/1 * ? *", weeklyGoalSearch)
                     break
                     case "Monthly Goal":
                     //schedule("0 0 0 1 1/1 ? *", setMonthlyGoal)
-                    schedule("0 0/3 * 1/1 * ? *", monthlyGoalSearch)
+                    schedule("0 0/10 * 1/1 * ? *", monthlyGoalSearch)
                     break
                     //default: break
                 }
@@ -121,12 +121,13 @@ def page2() {
                 //state["Start${myItem.id}"] = state.cumulative // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
                 if (state["NewApp${myItem.id}"] == true){
                 	state["NewApp${myItem.id}"] = false
-                    state["currentCumulation${myItem.id}"] = 0 // we create another object attached to our new goal called 'currentCumulation' which should hold the value for how much water has been used since the goal period has started
                     state["oneHundred${myItem.id}"] = false
                     state["ninety${myItem.id}"] = false
                     state["seventyFive${myItem.id}"] = false
                     state["fifty${myItem.id}"] = false
                     state["reSchedule${myItem.id}"] = false}
+                    state["Start${myItem.id}"] = meter.latestValue("cumulative") // we create another object attached to our goal called 'start' and store the existing cumulation on the FMI device so we know at what mileage we are starting at for this goal. this is useful for determining how much water is used during the goal period.
+
             }
         }
 
@@ -169,7 +170,7 @@ def dailyGoalSearch(){ // because of our limitations of schedule() we had to cre
      for (it in myRules){
         def r = it.rules
         if (r.type == "Daily Goal") {
-        	
+
         	scheduleGoal(r.measurementType, it.id, r.waterGoal, r.type)
             
         }
@@ -205,7 +206,10 @@ def monthlyGoalSearch(){
 def scheduleGoal(measureType, goalID, wGoal, goalType){ // this is where the magic happens. after a goal period has finished this method is invoked and the user gets a notification of the results of the water usage over their period.
 	def cost = 0
     def f = 1.0f
-    def curCumulation = state["currentCumulation${goalID}"] // transferring value to local variable becuase reading too much from a state variable causes issues
+    def topCumulative = meter.latestValue("cumulative") // pulling the current cumulative value from the FMI for calculating  how much water we have used since starting the goal.
+    def curCumulation = waterConversionPreference(topCumulative, measureType) - waterConversionPreference(state["Start${goalID}"], measureType)
+    
+    log.debug "${topCumulative}"
 	if (state.costRatio){
     	cost = costConversionPreference(state.costRatio,measureType) * curCumulation * f + state.fixedFee// determining the cost of the water that they have used over the period ( i had to create a variable 'f' and make it a float and multiply it to make the result a float. this is because the method .round() requires it to be a float for some reasons and it was easier than typecasting the result to a float.
     }
@@ -224,8 +228,8 @@ def scheduleGoal(measureType, goalID, wGoal, goalType){ // this is where the mag
     state["ninety${goalID}"] = false
     state["seventyFive${goalID}"] = false
     state["fifty${goalID}"] = false
-    if (state.cumulative != null) {state["Start${goalID}"] = state.cumulative} // 'start' should now be changed to the current cumulation value for future logic
-    state["currentCumulation${goalID}"]  = 0// 'currentCumulation' should be changed to 0 because the goal is now starting over
+    state["Start${goalID}"] = topCumulative // 'start' should now be changed to the current cumulation value for future logic
+    //log.debug "${state["currentCumulation${goalID}"]}"
 }
 	
 	
@@ -248,10 +252,22 @@ def installed() { // when the app is first installed - do something
 }
 
 def updated() { // whevenever the app is updated in any way by the user and you press the 'done' button on the top right of the app - do something
-	log.debug "Updated with settings: ${settings}"
+    if (state.count == 1) // this bit with state keeps the function from running twice ( which it always seems to want to do) (( oh, and state.count is a variable which is nonVolatile and doesn't change per every parse request.
+    {
 
-	unsubscribe()
-	initialize()
+        state.count = 0
+        log.debug "Updated with settings: ${settings}"
+        unsubscribe()
+		initialize()
+    }
+    else {state.count = 1}
+    
+    
+
+    
+    
+
+	
     //unschedule()
 }
 
@@ -285,11 +301,10 @@ def setMonthlyGoal(measurementType2 ,childAppID2)
 }
 */
 def cumulativeHandler(evt) { // every time a tick on the FMI happens this method is called. 'evt' contains the cumulative value of every tick that has happened on the FMI since it was last reset. each tick represents 1/10 of a gallon
-    def f = 1.0f
+    def f = 1.0f //the .round() method requires the number to be a float so multiplying the number by this variable is a cheap way to typecast.
 	def gpm = meter.latestValue("gpm") // storing the current gallons per minute value
     def cumulative = new BigDecimal(evt.value) // storing the current cumulation  value
-    state.cumulative = cumulative // making that value available across the app globally and making is persist across instances.
-    log.debug "Cumulative Handler: [gpm: ${gpm}, cumulative: ${state.cumulative}]"
+    //log.debug "Cumulative Handler: [gpm: ${gpm}, cumulative: ${state.cumulative}]"
     def rules = state.rules //storing the array of child apps to 'rules'
     rules.each { it -> // looping through each app in the array but storing each app into the variable 'it'
         def r = it.rules // each child app has a 2 immediate properties, one called 'id' and one called 'rules' - so 'r' contains the values of 'rules' in the child app
@@ -301,31 +316,30 @@ def cumulativeHandler(evt) { // every time a tick on the FMI happens this method
         state.DailyGallonGoal = DailyGallonGoal // and then we make that value global and persistent for logic reasons
         if (state["Start${childAppID}"] == null) {state["Start${childAppID}"] = cumulative}// just for the first run of the app... start should be null. so we have to change that for the logic to work.
         def currentCumulation = waterConversionPreference(cumulative, r.measurementType) - waterConversionPreference(state["Start${childAppID}"], r.measurementType) // earlier we created the value 'currentCumulation' and set it to 0, now we are converting both the 'cumulative' value and what 'cumulative' was when the goal perio was made and subtracting them to discover how much water has been used since the creation of the goal in the users prefered water measurement unit.
-		state["currentCumulation${childAppID}"] = currentCumulation
-        log.debug("Threshold:${DailyGallonGoal}, Value:${currentCumulation}")
+        log.debug("Goal Type: ${r.measurementType} Threshold:${DailyGallonGoal}, Value:${currentCumulation}")
 
         if ( currentCumulation >= (0.5 * DailyGallonGoal) && currentCumulation < (0.75 * DailyGallonGoal) && state["fifty${childAppID}"] == false) // tell the user if they break certain use thresholds
         {
             notify("You have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "You have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            //log.debug "You have reached 50% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["fifty${childAppID}"] = true
         }
         if ( currentCumulation >= (0.75 * DailyGallonGoal) && currentCumulation < (0.9 * DailyGallonGoal) && state["seventyFive${childAppID}"] == false)
         {
             notify("You have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "You have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            //log.debug "You have reached 75% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["seventyFive${childAppID}"] = true
         }
         if ( currentCumulation >= (0.9 * DailyGallonGoal) && currentCumulation < (DailyGallonGoal) && state["ninety${childAppID}"] == false)
         {
             notify("You have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "You have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            //log.debug "You have reached 90% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["ninety${childAppID}"] = true
         }
         if (currentCumulation >= DailyGallonGoal && state["oneHundred${childAppID}"] == false)
         {
             notify("You have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})")
-            log.debug "You have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
+            //log.debug "You have reached 100% of your ${r.type} use limit. (${(currentCumulation * f).round(2)} of ${DailyGallonGoal} ${r.measurementType})"
             state["oneHundred${childAppID}"] = true
             //send command here like shut off the water
             
@@ -383,7 +397,7 @@ def costConversionPreference(cumul, measurementType1) // convert the current cum
 
 def notify(myMsg) // method for both push notifications and for text messaging.
 {
-	log.debug("Sending Notification")
+	//log.debug("Sending Notification")
     if (pushNotification)
     {
         sendPush(myMsg)
@@ -446,6 +460,4 @@ def getChildById(app)
 
 def uninstalled() {
     // external cleanup. No need to unsubscribe or remove scheduled jobs
-    unsubscribe()
-    unschedule()
 }

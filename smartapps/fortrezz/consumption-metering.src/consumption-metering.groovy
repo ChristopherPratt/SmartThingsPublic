@@ -149,8 +149,7 @@ def updated() {
 	log.debug "Updated with settings: ${settings}"
 	app.updateLabel("${type} - ${waterGoal} ${measurementType}")
     
-    log.debug "${now()}"
-	
+
 	unsubscribe()
 	initialize()
     //unschedule()
