@@ -167,7 +167,9 @@ def settings() {
     	log.debug("valve set: ${set.valve}")
     	set.valve = set.valve.id
     }
+    
     log.debug(set)
+
 	return set
 }
 
