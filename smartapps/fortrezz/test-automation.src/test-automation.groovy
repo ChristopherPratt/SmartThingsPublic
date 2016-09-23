@@ -44,8 +44,7 @@ def installed() { // when the app is first installed - do something
 }
 
 def updated() { // whevenever the app is updated in any way by the user and you press the 'done' button on the top right of the app - do something   
-    if (state.count == 1) // this bit with state keeps the function from running twice ( which it always seems to want to do) (( oh, and state.count is a variable which is nonVolatile and doesn't change per every parse request.
-    {
+    
     	log.debug "Updated"
         if (state.repeat != 1){state.repeat = 0}
         if (repeatSwitch == true && state.repeat == 0){
@@ -57,9 +56,7 @@ def updated() { // whevenever the app is updated in any way by the user and you 
             state.repeat = 0
             log.debug "Repeat Switch is OFF!"
             }
-        state.count = 0
-    }
-    else {state.count = 1}
+
 }
 
 def initialize() { // whenever you open the smart app - do something
