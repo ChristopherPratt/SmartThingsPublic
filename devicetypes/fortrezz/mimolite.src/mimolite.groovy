@@ -27,6 +27,8 @@ metadata {
 
 		command "on"
 		command "off"
+        command "onSwitch"
+   
         
         fingerprint deviceId: "0x1000", inClusters: "0x72,0x86,0x71,0x30,0x31,0x35,0x70,0x85,0x25,0x03"
 	}
@@ -38,12 +40,13 @@ metadata {
     
     preferences {
        input "RelaySwitchDelay", "decimal", title: "Delay between relay switch on and off in seconds. Only Numbers 0 to 25.5 allowed. 0 value will remove delay and allow relay to function as a standard switch", description: "Numbers 0 to 25.5 allowed.", defaultValue: 0, required: false, displayDuringSetup: true
+       input "repeatSwitch", "bool", title: "Select to allow the switch to repeat every 1 minute",  defaultValue: false, required: false, displayDuringSetup: true
     }
 
 
 	// UI tile definitions 
 	tiles (scale: 2) {
-        standardTile("switch", "device.switch", width: 4, height: 4, canChangeIcon: false, decoration: "flat") {
+        standardTile("theSwitch", "device.theSwitch", width: 4, height: 4, canChangeIcon: false, decoration: "flat") {
             state "on", label: "On", action: "off", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-On-104-edit.png", backgroundColor: "#53a7c0"
 			state "off", label: 'Off', action: "on", icon: "http://swiftlet.technology/wp-content/uploads/2016/06/Switch-Off-104-edit.png", backgroundColor: "#ffffff"
         }
@@ -64,8 +67,8 @@ metadata {
         valueTile("voltage", "device.voltage", width: 2, height: 2) {
         state "val", label:'${currentValue}v', unit:"", defaultState: true
     }
-		main (["switch"])
-		details(["switch", "contact", "voltage", "powered", "refresh","configure"])
+		main (["theSwitch"])
+		details(["theSwitch", "contact", "voltage", "powered", "refresh","configure"])
 	}
 }
 
@@ -92,9 +95,38 @@ def parse(String description) {
 }
 
 def updated() {
-	log.debug "Settings Updated..."
-    return response(configure())
+	if (state.count == 1) // this bit with state keeps the function from running twice ( which it always seems to want to do) (( oh, and state.count is a variable which is nonVolatile and doesn't change per every parse request.
+    {
+        if (state.repeat != 1){state.repeat = 0}
+        if (repeatSwitch == true && state.repeat == 0){
+            schedule("0 0/1 * 1/1 * ? *", onSwitch)
+            state.repeat = 1
+            log.debug "Repeat Switch is ON!"}
+        if (repeatSwitch == false && state.repeat == 1){
+            unschedule()
+            state.repeat = 0
+            log.debug "Repeat Switch is OFF!"
+            }
+        
+        state.count = 0
+        log.debug "Settings Updated..."
+        return response(delayBetween([
+            configure(), // the response() function is used for sending commands in reponse to an event, without it, no zWave commands will work for contained function
+            refresh()
+            ], 200))
+    }
+    else {state.count = 1}
+  
 }
+
+def onSwitch()
+{
+	def event = createEvent(descriptionText: "${device.displayName} woke up", displayed: false)
+    def cmds = []
+    cmds << zwave.basicV1.basicSet(value: 0xFF).format()
+    [event, response(cmds)] // return a list containing the event and the result of response()
+    }
+    
 //notes about zwaveEvents:
 // these are special overloaded functions which MUST be returned with a map similar to (return [name: "switch", value: "on"])
 // not doing so will produce a null on the parse function, this will mess you up in the future.
@@ -103,11 +135,11 @@ def zwaveEvent(physicalgraph.zwave.commands.switchbinaryv1.SwitchBinaryReport cm
 log.debug "switchBinaryReport ${cmd}"
     if (cmd.value) // if the switch is on it will not be 0, so on = true
     {
-		return [name: "switch", value: "on"] // change switch value to on
+		return [name: "theSwitch", value: "on"] // change switch value to on
     }
     else // if the switch sensor report says its off then do...
     {
-		return [name: "switch", value: "off"] // change switch value to off
+		return [name: "theSwitch", value: "off"] // change switch value to off
     }
        
 }
@@ -188,6 +220,7 @@ def configure() {
 }
 
 def on() {
+	log.debug"${now()}"
 	delayBetween([
 		zwave.basicV1.basicSet(value: 0xFF).format(),	// physically changes the relay from on to off and requests a report of the relay
         refresh()// to make sure that it changed (the report is used elsewhere, look for switchBinaryReport()

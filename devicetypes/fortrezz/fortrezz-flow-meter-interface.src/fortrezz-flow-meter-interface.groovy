@@ -82,7 +82,7 @@ metadata {
 			state "overheated", label:'Overheated', icon:"st.alarm.temperature.overheat", backgroundColor:"#F80000"
 		}
         valueTile("take1", "device.image", width: 2, height: 2, canChangeIcon: false, inactiveLabel: true, canChangeBackground: false, decoration: "flat") {
-            state "take", label: "", action: "Image Capture.take", nextState:"taking", icon: "st.secondary.refresh"
+            state "take", label: "Refresh Graph", action: "Image Capture.take", nextState:"taking", icon: "st.secondary.refresh"
         }
 		valueTile("chartMode", "device.chartMode", width: 2, height: 2, canChangeIcon: false, canChangeBackground: false, decoration: "flat") {
 			state "day", label:'24 Hours\n(press to change)', nextState: "week", action: 'chartMode'
@@ -93,7 +93,7 @@ metadata {
 			state "zero", label:'Zero', action: 'zero'
 		}
 		main (["waterState"])
-		details(["flowHistory", "chartMode", "take1", "temperature", "gpm", "waterState", "battery"])
+		details(["flowHistory", "chartMode", "take1", "temperature", "gpm", "waterState", "battery", "zeroTile"])
 	}
     
 }
@@ -202,12 +202,17 @@ def take28() {
 
 def zero()
 {
-	delayBetween([
+	/*delayBetween([
 		zwave.meterV3.meterReset().format(),
         zwave.meterV3.meterGet().format(),
         zwave.firmwareUpdateMdV2.firmwareMdGet().format(),
-    ], 100)
+    ], 100)*/
+    unschedule()
+    //schedule("0 0/1 * 1/1 * ? *", myMessage) 
 }
+
+def myMessage()
+{log.debug"the schedule is working!####################"}
 
 def zwaveEvent(physicalgraph.zwave.commands.sensormultilevelv5.SensorMultilevelReport cmd)
 {
