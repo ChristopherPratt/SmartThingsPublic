@@ -40,7 +40,6 @@ metadata {
     
     preferences {
        input "RelaySwitchDelay", "decimal", title: "Delay between relay switch on and off in seconds. Only Numbers 0 to 25.5 allowed. 0 value will remove delay and allow relay to function as a standard switch", description: "Numbers 0 to 25.5 allowed.", defaultValue: 0, required: false, displayDuringSetup: true
-       input "repeatSwitch", "bool", title: "Select to allow the switch to repeat every 1 minute",  defaultValue: false, required: false, displayDuringSetup: true
     }
 
 
@@ -94,38 +93,6 @@ def parse(String description) {
 	return result
 }
 
-def updated() {
-	if (state.count == 1) // this bit with state keeps the function from running twice ( which it always seems to want to do) (( oh, and state.count is a variable which is nonVolatile and doesn't change per every parse request.
-    {
-        if (state.repeat != 1){state.repeat = 0}
-        if (repeatSwitch == true && state.repeat == 0){
-            schedule("0 0/1 * 1/1 * ? *", onSwitch)
-            state.repeat = 1
-            log.debug "Repeat Switch is ON!"}
-        if (repeatSwitch == false && state.repeat == 1){
-            unschedule()
-            state.repeat = 0
-            log.debug "Repeat Switch is OFF!"
-            }
-        
-        state.count = 0
-        log.debug "Settings Updated..."
-        return response(delayBetween([
-            configure(), // the response() function is used for sending commands in reponse to an event, without it, no zWave commands will work for contained function
-            refresh()
-            ], 200))
-    }
-    else {state.count = 1}
-  
-}
-
-def onSwitch()
-{
-	def event = createEvent(descriptionText: "${device.displayName} woke up", displayed: false)
-    def cmds = []
-    cmds << zwave.basicV1.basicSet(value: 0xFF).format()
-    [event, response(cmds)] // return a list containing the event and the result of response()
-    }
     
 //notes about zwaveEvents:
 // these are special overloaded functions which MUST be returned with a map similar to (return [name: "switch", value: "on"])

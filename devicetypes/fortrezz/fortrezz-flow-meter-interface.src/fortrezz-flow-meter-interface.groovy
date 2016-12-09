@@ -207,7 +207,7 @@ def zero()
         zwave.meterV3.meterGet().format(),
         zwave.firmwareUpdateMdV2.firmwareMdGet().format(),
     ], 100)*/
-    unschedule()
+    //unschedule()
     //schedule("0 0/1 * 1/1 * ? *", myMessage) 
 }
 
