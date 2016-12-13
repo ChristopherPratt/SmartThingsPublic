@@ -53,9 +53,7 @@ def prefsPage() {
                     section("Threshold settings") {
                         input(name: "waterGoal", type: "decimal", title: "Daily ${measurementType} Goal", required: true, defaultValue: 0.5)
                     }
-                    section("Time of Alert") {
-                        input(name: "alertTime", type: "time", title: "Time of day in 24-hour format that you want the goal to end", required: false)
-                    }
+
                                       
                     break
 
@@ -65,9 +63,7 @@ def prefsPage() {
                     section("Threshold settings") {
                         input(name: "waterGoal", type: "decimal", title: "Weekly ${measurementType} Goal", required: true, defaultValue: 0.1)
                     }
-                    section("Time of Alert") {
-                        input(name: "alertTime", type: "time", title: "Time of day in 24-hour format that you want the goal to end", required: false)
-                    }
+
                     
                     break
 
@@ -77,9 +73,7 @@ def prefsPage() {
                     section("Threshold settings") {
                         input(name: "waterGoal", type: "decimal", title: "Monthly ${measurementType} Goal", required: true, defaultValue: 0.1)
                     }
-                    section("Time of Alert") {
-                        input(name: "alertTime", type: "time", title: "Time of day in 24-hour format that you want the goal to end", required: false)
-                    }
+
                     
                     break
 
@@ -145,7 +139,7 @@ def deviceCommands(dev)
 def installed() {
 	state.Daily = 0
 	log.debug "Installed with settings: ${settings}"
-	app.updateLabel("${type} - ${waterGoal} ${measurementType} ${alertTime}")
+	app.updateLabel("${type} - ${waterGoal} ${measurementType}")
     //schedule("	0 0/1 * 1/1 * ? *", setDailyGoal())
 	initialize()
 }
@@ -156,7 +150,7 @@ def installed() {
     
 def updated() {
 	log.debug "Updated with settings: ${settings}"
-	app.updateLabel("${type} - ${waterGoal} ${measurementType} ${alertTime}")
+	app.updateLabel("${type} - ${waterGoal} ${measurementType}")
     
 
 	unsubscribe()
