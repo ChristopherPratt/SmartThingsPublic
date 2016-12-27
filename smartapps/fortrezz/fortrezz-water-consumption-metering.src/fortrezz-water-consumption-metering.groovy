@@ -47,8 +47,8 @@ def page2() {
         
         section("Billing info") {
         	input(name: "unitType", type: "enum", title: "Water unit used in billing", description: null, defaultValue: "Gallons", required: true, submitOnChange: true, options: waterTypes())
-            input(name: "costPerUnit", type: "decimal", title: "Cost of water unit in billing", description: null, defaultValue: 0, required: true, submitOnChange: true)
-        	input(name: "fixedFee", type: "decimal", title: "Add a Fixed Fee?", description: null, defaultValue: 0, submitOnChange: true)}
+            input(name: "costPerUnit", type: "decimal", title: "Cost of water per unit", description: null, defaultValue: 0, required: true, submitOnChange: true)
+        	input(name: "fixedFee", type: "decimal", title: "Monthly Fixed Fee", description: null, defaultValue: 0, submitOnChange: true)}
         
         section("Send notifications through...") {
         	input(name: "pushNotification", type: "bool", title: "SmartThings App", required: false)
